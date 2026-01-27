@@ -1,0 +1,53 @@
+enabled: true
+
+api:
+  base_url: "https://integrate.api.nvidia.com/v1"
+  model: "deepseek-ai/deepseek-v3.2"
+  api_key_env: "NVIDIA_API_KEY"
+
+request_defaults:
+  temperature: 1.0
+  top_p: 0.95
+  max_tokens: 8192
+  thinking: false
+  stream: false
+
+repair:
+  enabled: true
+  max_chars: 8000
+  temperature: 0.0
+  top_p: 1.0
+  max_tokens: 2048
+  thinking: false
+  stream: false
+
+rate_limit:
+  requests_per_minute: 40
+
+logging:
+  enabled: false
+  directory: "logs/deepseek"
+  max_chars: 4000
+
+auxiliary:
+  challenge_agent:
+    enabled: false
+    apply_result: false
+    allow_override: false
+    reduction_factor: 0.5
+    min_agreement_ratio: 0.6
+    trigger_on_regime_disagreement: true
+  daily_summary:
+    enabled: false
+  regime_analysis:
+    enabled: false
+    trigger_on_unclear: true
+    timeframes:
+      H1: 100
+      H4: 50
+      D1: 20
+    indicator_periods:
+      adx: 14
+      atr: 14
+      bollinger_period: 20
+      bollinger_stddev: 2.0

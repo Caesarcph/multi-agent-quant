@@ -1,0 +1,35 @@
+models:
+  - gpt
+  - claude
+  - gemini
+  - deepseek
+
+regime_agreement:
+  required: true
+  min_agreement_ratio: 0.75
+  fallback_action: "HOLD"
+
+voting:
+  default_weights:
+    gpt: 0.25
+    claude: 0.25
+    gemini: 0.25
+    deepseek: 0.25
+  thresholds:
+    strong_buy: 0.50
+    buy: 0.35
+    sell: -0.35
+    strong_sell: -0.50
+
+minority_logging:
+  enabled: true
+
+dynamic_weighting:
+  enabled: false
+  weights_path: "logs/dynamic_weights.json"
+  min_weight: 0.10
+  max_weight: 0.40
+  window_signals: 200
+  min_samples: 10
+  timeframe: "M1"
+  default_ttl_minutes: 15

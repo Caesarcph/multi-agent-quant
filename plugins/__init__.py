@@ -1,0 +1,1 @@
+"""External data plugin collection."""

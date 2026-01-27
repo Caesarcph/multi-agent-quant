@@ -1,0 +1,34 @@
+enabled: true
+# When enabled is true, set dry_run to false to allow order_send.
+dry_run: false
+
+# Use signal-provided volume directly.
+use_signal_volume: true
+# Use signal risk fraction + stop loss to size volume (ignored if use_signal_volume is true).
+use_risk_sizing: false
+
+# Default volume if sizing is not implemented yet.
+default_volume: 0.01
+
+# MT5 order parameters
+magic: 20250121
+comment: "multi-agent-quant"
+deviation: 20
+
+# Safety filters
+max_spread_pips: 3.0
+require_tick_bid_ask: true
+# Optional session filters; set to a number to enforce.
+min_session_deals: null
+min_session_volume: null
+enforce_safety: false
+
+# Position management for existing trades
+position_management:
+  enabled: true
+  close_on_opposite: true
+  allow_reverse: true
+  allow_scale_in: true
+  update_stops_on_same_direction: true
+  update_stops_on_hold: true
+  sl_tp_reference: "current"  # current or entry

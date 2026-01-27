@@ -1,0 +1,18 @@
+cli:
+  defaults:
+    timeout_seconds: 180
+    args: []
+    response_json_field: null
+  gpt:
+    enabled: true
+    command: "codex"
+    args: ["exec", "--skip-git-repo-check", "--output-last-message", "{output_file}", "-"]
+  claude:
+    enabled: true
+    command: "claude"
+    args: ["-p", "--output-format", "text"]
+  gemini:
+    enabled: true
+    command: "gemini"
+    args: ["--output-format", "json"]
+    response_json_field: "response"

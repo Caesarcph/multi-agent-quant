@@ -1,0 +1,80 @@
+mt5:
+  terminal_path: "D:/AVAmt5/terminal64.exe"
+  initialize_timeout_seconds: 30
+  max_bars: 1000
+  default_symbol: "EURUSD"
+
+snapshot:
+  symbol: "EURUSD"
+  timeframe: "M1"
+  bars: 50
+  include_symbol_universe: true
+  include_universe_ticks: true
+  include_positions: true
+  include_orders: false
+  include_indicators: false
+  include_correlations: false
+  indicators:
+    sma_periods: [20, 50]
+    rsi_period: 14
+    atr_period: 14
+    adx_period: 14
+    bollinger:
+      period: 20
+      stddev: 2
+  symbol_universe: []
+  symbol_limit: 999
+
+scan:
+  interval_minutes: 15
+  include_open_positions: true
+  symbols: []
+  symbol_limit: null
+
+external_data:
+  enabled: false
+  # Example plugin: "plugins.local_json_plugin:LocalJsonPlugin"
+  plugins: []
+  include: ["economic_calendar", "news", "sentiment", "macro"]
+  days_ahead: 7
+  lookback_days: 3
+  max_items: 50
+
+correlation:
+  enabled: false
+  symbols: ["EURUSD", "GBPUSD", "USDJPY"]
+  timeframe: "M15"
+  bars: 120
+
+logging:
+  directory: "logs"
+  level: "INFO"
+  cycle_dir: "logs/cycles"
+
+audit:
+  enabled: true
+  directory: "logs/agent_outputs"
+  max_chars: 4000
+
+daily_state:
+  enabled: true
+  path: "logs/daily_state.json"
+
+account_state:
+  enabled: true
+  path: "logs/account_state.json"
+
+report:
+  directory: "reports/daily"
+  formats: ["md", "json"]
+
+database:
+  enabled: false
+  path: "logs/analytics.db"
+
+tool_calls:
+  enabled: false
+  max_iterations: 2
+  include_tools_in_prompt: true
+  max_tools: 12
+  max_result_chars: 4000

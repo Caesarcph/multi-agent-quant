@@ -1,0 +1,33 @@
+paper_trading:
+  enabled: true
+  min_trades: 50
+  state_path: "logs/paper_state.json"
+  initial_balance: null
+  allow_scale_in: false
+  allow_reverse: true
+
+go_live_criteria:
+  min_win_rate: 0.45
+  min_profit_factor: 1.1
+  max_drawdown: 0.30
+  min_sharpe_ratio: 0.5
+
+performance_tracking:
+  timeframe: "M1"
+  default_ttl_minutes: 15
+  window_signals: 500
+  min_samples: 10
+
+mt5_backtest:
+  use_final_signal: true
+  default_ttl_minutes: 15
+  price_multiplier: 1.0
+  initial_balance: 0.0
+  models: []
+  symbols: []
+
+trade_attribution:
+  use_final_signal: true
+  match_window_minutes: 60
+  comment_contains: "multi-agent-quant"
+  magic: 20250121

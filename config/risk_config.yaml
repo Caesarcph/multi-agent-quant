@@ -1,0 +1,27 @@
+trade_level:
+  per_trade_risk: 0.01
+  require_stop_loss: true
+
+daily_level:
+  daily_loss_limit: 0.03
+  max_daily_trades: 10
+  daily_profit_target: null
+  max_daily_volume: null
+
+account_level:
+  max_drawdown: 0.50
+  max_concurrent_positions: 5
+  max_positions_per_symbol: 2
+  max_same_direction: 4
+  max_correlation: 0.8
+  drawdown_throttle:
+    0.10: 0.75
+    0.25: 0.50
+    0.40: 0.25
+  capital_preservation:
+    enabled: false
+    trigger_drawdown: 0.50
+    resume_drawdown: 0.30
+
+enforcement:
+  enabled: false
