@@ -1,5 +1,7 @@
 # Multi-Agent LLM Quantitative Trading System
 
+[![CI](https://github.com/Caesarcph/multi-agent-quant/actions/workflows/ci.yml/badge.svg)](https://github.com/Caesarcph/multi-agent-quant/actions/workflows/ci.yml)
+
 A multi-agent quantitative trading system that uses four independent Large Language Models (GPT, Claude, Gemini, DeepSeek) as research analysts, fuses their signals via weighted ensemble voting, and executes trades on a MetaTrader 5 demo account through a dedicated trading department.
 
 ## Architecture
@@ -64,7 +66,7 @@ Research agents focus purely on market direction without needing to know contrac
 ## Installation
 
 ```bash
-git clone https://github.com/<your-username>/multi-agent-quant.git
+git clone https://github.com/Caesarcph/multi-agent-quant.git
 cd multi-agent-quant
 
 python -m venv .venv
