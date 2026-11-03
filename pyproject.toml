@@ -14,6 +14,7 @@ dependencies = [
     "jsonschema>=4.23",
     "PyYAML>=6.0.2",
     "maq-core",
+    "maq-cli",
 ]
 
 [dependency-groups]
@@ -36,6 +37,7 @@ members = ["packages/*"]
 
 [tool.uv.sources]
 maq-core = { workspace = true }
+maq-cli = { workspace = true }
 
 # --------------------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
@@ -128,5 +130,5 @@ known-first-party = [
 python_version = "3.11"
 strict = true
 plugins = ["pydantic.mypy"]
-files = ["packages/maq-core/src"]
-mypy_path = ["packages/maq-core/src"]
+files = ["packages/maq-core/src", "packages/maq-cli/src"]
+mypy_path = ["packages/maq-core/src", "packages/maq-cli/src"]

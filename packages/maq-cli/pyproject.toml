@@ -1,0 +1,22 @@
+[project]
+name = "maq-cli"
+version = "0.1.0"
+description = "The `maq` command line for multi-agent-quant: doctor, config validation."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "maq-core",
+    "typer>=0.19",
+    "rich>=14.0",
+]
+
+[project.scripts]
+maq = "maq_cli.app:main"
+
+[tool.uv.sources]
+maq-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.11,<0.14"]
+build-backend = "uv_build"
