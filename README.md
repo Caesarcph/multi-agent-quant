@@ -2,6 +2,8 @@
 
 A multi-agent quantitative trading system that uses four independent Large Language Models (GPT, Claude, Gemini, DeepSeek) as research analysts, fuses their signals via weighted ensemble voting, and executes trades on a MetaTrader 5 demo account through a dedicated trading department.
 
+> 🚧 **2026 upgrade in progress / 大升级进行中** — see the [upgrade plan](docs/roadmap/README.md) (written in Chinese).
+
 ## Architecture
 
 ```
