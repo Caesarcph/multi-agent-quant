@@ -391,7 +391,9 @@ def _send_with_filling_fallback(
 ) -> tuple[Any, dict[str, Any], list[str]]:
     notes: list[str] = []
     response = mt5.order_send(request)
-    if response is not None and not _is_filling_mode_error(response):
+    # No answer (None) does not mean "not executed": the order may have gone
+    # through, so it is never resent. Only an explicit filling-mode rejection is.
+    if response is None or not _is_filling_mode_error(response):
         return response, request, notes
 
     for mode in _order_filling_types(symbol_info):
@@ -401,7 +403,7 @@ def _send_with_filling_fallback(
         retry_request["type_filling"] = mode
         notes.append(f"fill_mode_retry:{mode}")
         response = mt5.order_send(retry_request)
-        if response is not None and not _is_filling_mode_error(response):
+        if response is None or not _is_filling_mode_error(response):
             return response, retry_request, notes
     return response, request, notes
 
@@ -560,6 +562,60 @@ def execute_signal(
         )
     finally:
         mt5_connection.shutdown()
+
+
+def flatten_positions(
+    positions: list[dict[str, Any]],
+    execution_cfg: dict[str, Any],
+    *,
+    live: bool,
+) -> list[dict[str, Any]]:
+    """Close every position this system opened (same ``magic``), for the kill switch.
+
+    Positions with another magic number (opened by hand, other EAs) are left
+    alone; with ``magic: 0`` in the config every position is closed. Without
+    ``live`` the close requests are only recorded.
+    """
+    magic = int(execution_cfg.get("magic", 0))
+    results: list[dict[str, Any]] = []
+    for position in positions:
+        if magic and int(position.get("magic", 0)) != magic:
+            continue
+        symbol = str(position.get("symbol"))
+        try:
+            symbol_info = mt5_tools.get_symbol_info(symbol)
+            tick = mt5_tools.get_symbol_tick(symbol)
+        except RuntimeError as exc:
+            results.append(
+                _record_management_result("flatten", position, {}, status="error", error=str(exc))
+            )
+            continue
+        request = _build_close_request(position, symbol_info, tick, execution_cfg)
+        if request is None:
+            results.append(
+                _record_management_result(
+                    "flatten", position, {}, status="error", error="cannot build close request"
+                )
+            )
+            continue
+        request["type_filling"] = _order_filling_types(symbol_info)[0]
+        if not live:
+            results.append(_record_management_result("flatten", position, request, "dry_run"))
+            continue
+        response, sent, _ = _send_with_filling_fallback(request, symbol_info)
+        if response is None:
+            code, message = mt5.last_error()
+            results.append(
+                _record_management_result(
+                    "flatten", position, sent, "error", error=f"order_send_failed:{code}:{message}"
+                )
+            )
+            continue
+        status = "closed" if int(response.retcode) in _success_retcodes() else "rejected"
+        results.append(
+            _record_management_result("flatten", position, sent, status, response._asdict())
+        )
+    return results
 
 
 def render_execution_result(result: ExecutionResult) -> dict[str, Any]:

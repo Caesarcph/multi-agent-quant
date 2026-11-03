@@ -756,6 +756,8 @@ version = "0.1.0"
 source = { editable = "packages/maq-cli" }
 dependencies = [
     { name = "maq-core" },
+    { name = "maq-engine" },
+    { name = "maq-risk" },
     { name = "rich" },
     { name = "typer" },
 ]
@@ -763,6 +765,8 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "maq-core", editable = "packages/maq-core" },
+    { name = "maq-engine", editable = "packages/maq-engine" },
+    { name = "maq-risk", editable = "packages/maq-risk" },
     { name = "rich", specifier = ">=14.0" },
     { name = "typer", specifier = ">=0.19" },
 ]

@@ -36,10 +36,12 @@ from data.market_snapshot import build_snapshot
 from data.metrics import summarize_cycle
 from data.portfolio_state import get_open_orders, get_open_positions
 from data.trade_history import get_deals_today
-from execution.mt5_executor import execute_signal
+from execution.mt5_executor import execute_signal, flatten_positions
 from fusion.fusion_engine import decision_signal, fuse_signals
 from maq_core.config import ConfigError, live_trading_issues, load_config
 from maq_core.logging import bind_log_context, unbind_log_context
+from maq_risk.kill_switch import KillSwitch, default_path
+from maq_risk.models import KillSwitchMode, KillSwitchState
 from risk.account_guard import apply_account_limits
 from risk.correlation_guard import check_correlation_guard
 from risk.daily_guard import check_daily_limits, compute_daily_stats
@@ -471,6 +473,46 @@ def next_run_time(interval_minutes: int) -> datetime:
     return epoch + timedelta(seconds=next_seconds)
 
 
+def kill_switch_for(root: Path) -> KillSwitch:
+    """The kill switch `maq kill-switch` writes to ($MAQ_KILL_SWITCH_FILE or logs/)."""
+    path = default_path()
+    return KillSwitch(path if path.is_absolute() else root / path)
+
+
+def enforce_kill_switch(
+    kill_switch: KillSwitch,
+    flattened_for: datetime | None,
+    *,
+    mt5_cfg: dict[str, Any],
+    execution_cfg: dict[str, Any],
+    live: bool,
+    logger: logging.Logger,
+) -> tuple[KillSwitchState | None, datetime | None]:
+    """Return the kill switch state; on FLATTEN close our positions once per engagement."""
+    state = kill_switch.state()
+    if state is None:
+        return None, flattened_for
+    logger.warning("Kill switch engaged (%s) by %s: %s", state.mode, state.engaged_by, state.reason)
+    if state.mode is KillSwitchMode.FLATTEN and flattened_for != state.engaged_at:
+        mt5_connection.initialize(
+            terminal_path=mt5_cfg.get("terminal_path"),
+            timeout_seconds=mt5_cfg.get("initialize_timeout_seconds", 30),
+        )
+        try:
+            for result in flatten_positions(get_open_positions(), execution_cfg, live=live):
+                logger.warning(
+                    "Kill switch flatten: %s position %s -> %s %s",
+                    result.get("symbol"),
+                    result.get("position"),
+                    result.get("status"),
+                    result.get("error") or "",
+                )
+        finally:
+            mt5_connection.shutdown()
+        flattened_for = state.engaged_at
+    return state, flattened_for
+
+
 def main() -> None:
     args = parse_args()
     config_dir = repo_root / "config"
@@ -519,6 +561,9 @@ def main() -> None:
 
     cycle_dir = repo_root / logging_cfg.get("cycle_dir", "logs/cycles")
     cycle_count = 0
+    kill_switch = kill_switch_for(repo_root)
+    execution_cfg = load_yaml(config_dir / "execution_config.yaml")
+    flattened_for: datetime | None = None
 
     try:
         while True:
@@ -530,8 +575,18 @@ def main() -> None:
             logger.info("CYCLE %d | %s", cycle_count, cycle_start.strftime("%Y-%m-%d %H:%M:%S UTC"))
             logger.info("=" * 70)
 
+            # A manual stop skips the whole cycle (no research, no orders).
+            halted, flattened_for = enforce_kill_switch(
+                kill_switch,
+                flattened_for,
+                mt5_cfg=mt5_cfg,
+                execution_cfg=execution_cfg,
+                live=args.live,
+                logger=logger,
+            )
+
             # Step 1: Scan market for opportunities
-            symbols = scan_market_opportunities(mt5_cfg, logger)
+            symbols = [] if halted else scan_market_opportunities(mt5_cfg, logger)
 
             if not symbols:
                 logger.warning("No tradeable symbols found. Waiting for next cycle.")
@@ -667,6 +722,14 @@ def main() -> None:
                             account_info=account_info,
                             positions=positions,
                         )
+
+                        # Research takes minutes: check the kill switch again before sending.
+                        if kill_switch.state() is not None:
+                            trading_decision = {
+                                "decision": "REJECT",
+                                "reason": "kill switch engaged",
+                            }
+                            risk_notes.append("kill_switch")
 
                         # Execution
                         execution_result = execute_trade(

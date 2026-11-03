@@ -25,6 +25,7 @@ from pathlib import Path
 from maq_core.events import Event, canonical_json, parse_event
 
 GENESIS_HASH = "0" * 64
+DEFAULT_EVENT_DB = Path("logs") / "events.db"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (

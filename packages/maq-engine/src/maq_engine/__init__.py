@@ -12,11 +12,18 @@ from maq_engine.events import (
 )
 from maq_engine.orders import OrderManager, OrderRecord, ReconcileReport
 from maq_engine.pipeline import ExecutionPipeline, PipelineResult, average_true_range
-from maq_engine.store import GENESIS_HASH, EventStore, StoredEvent, VerifyReport
+from maq_engine.store import (
+    DEFAULT_EVENT_DB,
+    GENESIS_HASH,
+    EventStore,
+    StoredEvent,
+    VerifyReport,
+)
 
 __version__ = "0.1.0"
 
 __all__ = [
+    "DEFAULT_EVENT_DB",
     "GENESIS_HASH",
     "DayStarted",
     "EventStore",

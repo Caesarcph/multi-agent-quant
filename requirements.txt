@@ -16,9 +16,12 @@
     #   maq-risk
     #   multi-agent-quant
 -e ./packages/maq-engine
-    # via multi-agent-quant
+    # via
+    #   maq-cli
+    #   multi-agent-quant
 -e ./packages/maq-risk
     # via
+    #   maq-cli
     #   maq-engine
     #   multi-agent-quant
 -e ./services/mt5-gateway

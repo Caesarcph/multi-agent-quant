@@ -1,12 +1,14 @@
 [project]
 name = "maq-cli"
 version = "0.1.0"
-description = "The `maq` command line for multi-agent-quant: doctor, config validation."
+description = "The `maq` command line for multi-agent-quant: doctor, config validation, kill switch, audit."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
     "maq-core",
+    "maq-risk",
+    "maq-engine",
     "typer>=0.19",
     "rich>=14.0",
 ]
@@ -16,6 +18,8 @@ maq = "maq_cli.app:main"
 
 [tool.uv.sources]
 maq-core = { workspace = true }
+maq-risk = { workspace = true }
+maq-engine = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.11,<0.14"]

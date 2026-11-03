@@ -15,6 +15,9 @@ from rich.table import Table
 from maq_cli import __version__
 from maq_cli.doctor import Status, run_checks
 from maq_core.config import ConfigError, live_trading_issues, load_config
+from maq_engine.store import DEFAULT_EVENT_DB, EventStore
+from maq_risk.kill_switch import KillSwitch
+from maq_risk.models import KillSwitchMode
 
 app = typer.Typer(
     help="multi-agent-quant command line.", no_args_is_help=True, add_completion=False
@@ -117,6 +120,118 @@ def config_show(
         typer.echo(json.dumps(data, indent=2, ensure_ascii=False))
     else:
         typer.echo(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), nl=False)
+
+
+# --------------------------------------------------------------------------- kill switch
+kill_app = typer.Typer(
+    help="Stop trading by hand: halt new positions, or close everything.",
+    no_args_is_help=True,
+)
+app.add_typer(kill_app, name="kill-switch")
+
+KillFileOption = Annotated[
+    Path | None,
+    typer.Option(
+        "--file",
+        help="Kill switch state file (default: $MAQ_KILL_SWITCH_FILE or logs/kill_switch.json)",
+    ),
+]
+
+
+def _kill_switch(path: Path | None) -> KillSwitch:
+    return KillSwitch(path)
+
+
+@kill_app.command("engage")
+def kill_engage(
+    reason: Annotated[str, typer.Option("--reason", "-r", help="Why; shown in logs and the UI")],
+    mode: Annotated[
+        KillSwitchMode,
+        typer.Option(
+            "--mode",
+            "-m",
+            help="halt_new: no new positions. flatten: also close all open positions.",
+        ),
+    ] = KillSwitchMode.HALT_NEW,
+    file: KillFileOption = None,
+) -> None:
+    """Engage the kill switch; running loops pick it up before their next order."""
+    state = _kill_switch(file).engage(mode, reason, by=f"cli:{os.environ.get('USER', '?')}")
+    _console().print(
+        f"[bold red]Kill switch engaged[/] ({state.mode}) at "
+        f"{state.engaged_at:%Y-%m-%d %H:%M:%S} UTC: {state.reason}"
+    )
+
+
+@kill_app.command("release")
+def kill_release(file: KillFileOption = None) -> None:
+    """Release the kill switch."""
+    if _kill_switch(file).release():
+        _console().print("[green]Kill switch released[/]")
+    else:
+        _console().print("Kill switch was not engaged")
+
+
+@kill_app.command("status")
+def kill_status(file: KillFileOption = None) -> None:
+    """Show the kill switch state; exit code 3 while it is engaged."""
+    state = _kill_switch(file).state()
+    if state is None:
+        _console().print("[green]Not engaged[/]: trading may continue")
+        return
+    _console().print(
+        f"[bold red]Engaged[/] ({state.mode}) by {state.engaged_by} at "
+        f"{state.engaged_at:%Y-%m-%d %H:%M:%S} UTC: {state.reason}"
+    )
+    raise typer.Exit(code=3)
+
+
+# --------------------------------------------------------------------------- audit
+audit_app = typer.Typer(help="Check the event log.", no_args_is_help=True)
+app.add_typer(audit_app, name="audit")
+
+EventDbOption = Annotated[
+    Path, typer.Option("--db", help="Event log database", envvar="MAQ_EVENT_DB")
+]
+
+
+@audit_app.command("verify")
+def audit_verify(
+    db: EventDbOption = DEFAULT_EVENT_DB,
+    anchor: Annotated[
+        str | None,
+        typer.Option(help="Hash recorded earlier with `maq audit head`; catches a cut-off tail"),
+    ] = None,
+) -> None:
+    """Recompute the hash chain; exit 1 if any record was changed, removed or reordered."""
+    if not db.exists():
+        _console(stderr=True).print(f"[bold red]✗ {db} does not exist[/]", soft_wrap=True)
+        raise typer.Exit(code=2)
+    with EventStore(db) as store:
+        report = store.verify(expected_head=anchor)
+    if report.ok:
+        _console().print(
+            f"[green]✓ {report.checked} record(s) intact[/], head {report.head}", soft_wrap=True
+        )
+        return
+    where = f" at record {report.first_bad_seq}" if report.first_bad_seq else ""
+    _console(stderr=True).print(
+        f"[bold red]✗ chain broken{where}[/] after {report.checked} good record(s): "
+        f"{report.problem}",
+        soft_wrap=True,
+    )
+    raise typer.Exit(code=1)
+
+
+@audit_app.command("head")
+def audit_head(db: EventDbOption = DEFAULT_EVENT_DB) -> None:
+    """Print the latest sequence number and hash, to keep somewhere else as an anchor."""
+    if not db.exists():
+        _console(stderr=True).print(f"[bold red]✗ {db} does not exist[/]", soft_wrap=True)
+        raise typer.Exit(code=2)
+    with EventStore(db) as store:
+        seq, digest = store.head()
+    typer.echo(f"{seq} {digest}")
 
 
 def main() -> None:

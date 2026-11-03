@@ -155,6 +155,18 @@ def test_retries_another_filling_mode_when_rejected(mt5: FakeMT5, mt5_cfg: dict[
     assert result.notes[-1] == f"fill_mode_retry:{ORDER_FILLING_FOK}"
 
 
+def test_no_answer_is_never_resent(mt5: FakeMT5, mt5_cfg: dict[str, Any]) -> None:
+    """Regression: a None from order_send (IPC timeout) used to trigger a resend with
+    another filling mode, which can open a second position if the first went through."""
+    mt5.order_send_results.extend([None, mt5.result(TRADE_RETCODE_DONE, volume=0.5)])
+    mt5.error = (-10005, "IPC timeout")
+    result = execute_signal(buy_signal(), exec_cfg(), mt5_cfg, positions=[])
+
+    assert len(mt5.sent_requests) == 1
+    assert result.status == "error"
+    assert result.errors == ["order_send_failed:-10005:IPC timeout"]
+
+
 def test_broker_rejection_is_reported(mt5: FakeMT5, mt5_cfg: dict[str, Any]) -> None:
     mt5.order_send_results.append(mt5.result(TRADE_RETCODE_NO_MONEY, comment="No money"))
     result = execute_signal(buy_signal(), exec_cfg(), mt5_cfg, positions=[])
