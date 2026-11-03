@@ -23,5 +23,7 @@ account_level:
     trigger_drawdown: 0.50
     resume_drawdown: 0.30
 
+# Trade/daily/account guards. Keep enabled: with it off, the drawdown hard stop,
+# daily loss limit and exposure limits are all skipped.
 enforcement:
-  enabled: false
+  enabled: true

@@ -46,7 +46,8 @@ Run a single cycle (dry-run execution):
 
 Enable live demo orders:
 
-- Set `config/execution_config.yaml`:
+- Main loop (`scripts/run_loop.py`): pass `--live`. Without it every order is a dry run, regardless of the config.
+- Single-cycle scripts (`scripts/run_cycle.py`): set `config/execution_config.yaml`:
   - `enabled: true`
   - `dry_run: false`
 

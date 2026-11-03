@@ -36,7 +36,7 @@ from data.metrics import summarize_cycle
 from data.portfolio_state import get_open_positions, get_open_orders
 from data.trade_history import get_deals_today
 from execution.mt5_executor import execute_signal
-from fusion.fusion_engine import fuse_signals
+from fusion.fusion_engine import decision_signal, fuse_signals
 from risk.account_guard import apply_account_limits
 from risk.correlation_guard import check_correlation_guard
 from risk.daily_guard import check_daily_limits, compute_daily_stats
@@ -79,6 +79,11 @@ def parse_args() -> argparse.Namespace:
         "--max-cycles",
         type=int,
         help="Stop after N cycles (for testing)",
+    )
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="Send real orders to MT5. Without this flag every order is a dry run.",
     )
     return parser.parse_args()
 
@@ -360,15 +365,39 @@ def run_trading_department(
 # EXECUTION
 # =============================================================================
 
+def order_risk_fraction(
+    final_signal: Dict[str, Any], risk_cfg: Dict[str, Any]
+) -> Optional[float]:
+    """Risk budget for the order: the guard-adjusted fraction, never above per_trade_risk."""
+    def _to_float(value: Any) -> Optional[float]:
+        try:
+            return float(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    cap = _to_float(risk_cfg.get("trade_level", {}).get("per_trade_risk"))
+    risk = final_signal.get("risk") if isinstance(final_signal.get("risk"), dict) else {}
+    fraction = _to_float(risk.get("risk_fraction_of_initial"))
+    if fraction is None or fraction <= 0.0:
+        return cap
+    return min(fraction, cap) if cap is not None else fraction
+
+
 def execute_trade(
     trading_decision: Dict[str, Any],
     config_dir: Path,
     mt5_cfg: Dict,
     positions: List[Dict],
     logger: logging.Logger,
+    live: bool = False,
+    risk_fraction: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Execute the trade via MT5.
+
+    Orders are dry runs unless ``live`` is True. Volume is sized from
+    ``risk_fraction`` and the stop distance (see execution_config.yaml
+    ``use_risk_sizing``); the trading agent's volume can only shrink it.
     """
     if trading_decision.get("decision") not in ("EXECUTE", "MODIFY"):
         return {"status": "NOT_EXECUTED", "reason": trading_decision.get("reason")}
@@ -388,6 +417,7 @@ def execute_trade(
         "risk": {
             "stop_loss_pips": 0,  # Trading dept provides actual prices
             "take_profit_pips": 0,
+            "risk_fraction_of_initial": risk_fraction or 0.0,
         },
     }
 
@@ -398,8 +428,9 @@ def execute_trade(
         signal["tp_price"] = order["tp_price"]
 
     execution_cfg = load_yaml(config_dir / "execution_config.yaml")
-    execution_cfg["enabled"] = True  # Always execute in this mode
-    execution_cfg["dry_run"] = False  # No dry run - it's a demo account
+    execution_cfg["enabled"] = True
+    # Only an explicit --live sends orders; the config file alone cannot switch it on.
+    execution_cfg["dry_run"] = not live
 
     result = execute_signal(signal, execution_cfg, mt5_cfg, positions=positions)
 
@@ -447,7 +478,10 @@ def main() -> None:
     logger.info("  MULTI-AGENT QUANTITATIVE HEDGE FUND")
     logger.info("  Research Department: GPT + Claude + Gemini + DeepSeek")
     logger.info("  Trading Department: DeepSeek with MT5 Tool Access")
-    logger.info("  Mode: LIVE DEMO TRADING (no dry-run)")
+    if args.live:
+        logger.warning("  Mode: LIVE -- orders WILL be sent to MT5")
+    else:
+        logger.info("  Mode: DRY RUN -- no orders are sent (pass --live to trade)")
     logger.info("=" * 70)
 
     # Create trading agent
@@ -549,9 +583,8 @@ def main() -> None:
                             )
                             daily_state = update_daily_state(state_path, daily_stats)
 
-                        final_signal = research_result.get("fusion", {}).get(
-                            "representative_signal", {}
-                        )
+                        # Act on the ensemble decision, not one model's raw signal.
+                        final_signal = decision_signal(research_result.get("fusion") or {})
                         risk_notes: List[str] = []
                         if risk_cfg.get("enforcement", {}).get("enabled", True):
                             final_signal, risk_notes = apply_basic_risk(
@@ -611,6 +644,8 @@ def main() -> None:
                             mt5_cfg=mt5_cfg,
                             positions=positions,
                             logger=logger,
+                            live=args.live,
+                            risk_fraction=order_risk_fraction(final_signal, risk_cfg),
                         )
 
                         snapshot = research_result.get("snapshot", {})

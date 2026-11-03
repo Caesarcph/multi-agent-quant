@@ -2,12 +2,33 @@
 from __future__ import annotations
 
 from collections import Counter
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Iterable
 
 from fusion.dynamic_weighting import load_dynamic_weights
 
 ACTION_SCORE = {"BUY": 1.0, "HOLD": 0.0, "SELL": -1.0}
+
+
+def decision_signal(fused: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the signal that risk checks and the trading department should act on.
+
+    ``representative_signal`` is one model's raw output, picked for its SL/TP and
+    context. It can disagree with the ensemble: when the fused action is HOLD
+    because of a split vote or a failed regime-agreement check, no model may have
+    voted HOLD, so the representative is a BUY or SELL. The fused action must win,
+    otherwise the regime gate and the voting thresholds are silently bypassed.
+    """
+    signal = deepcopy(fused.get("representative_signal") or {})
+    action = fused.get("action") or "HOLD"
+    original = signal.get("action")
+    if original != action:
+        signal["action"] = action
+        signal["fusion_override"] = {"from": original, "to": action}
+        if action == "HOLD":
+            signal["volume"] = 0.0
+    return signal
 
 
 def _majority(items: list[str]) -> tuple[str | None, float]:

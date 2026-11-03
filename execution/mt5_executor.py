@@ -9,7 +9,7 @@ import MetaTrader5 as mt5
 
 from execution.order_validator import validate_signal_for_execution
 from execution.safety_checks import check_execution_safety, check_liquidity
-from risk.position_sizer import calculate_volume
+from risk.position_sizer import size_order
 from tools import mt5_connection, mt5_tools
 
 
@@ -497,11 +497,18 @@ def execute_signal(
                     notes=notes,
                 )
         elif execution_cfg.get("use_risk_sizing", True):
-            volume, sizing_notes = calculate_volume(
+            entry = signal.get("entry") or {}
+            if entry.get("type") == "limit" and entry.get("price"):
+                entry_price = float(entry["price"])
+            else:
+                entry_price = _current_price(signal["action"], tick)
+            # A volume proposed by an LLM may only shrink the risk-based size, never grow it.
+            volume, sizing_notes = size_order(
                 signal=signal,
                 symbol_info=symbol_info,
                 account_info=account_dict,
                 default_volume=default_volume,
+                entry_price=entry_price,
             )
             notes.extend(sizing_notes)
 

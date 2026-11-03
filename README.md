@@ -2,6 +2,8 @@
 
 A multi-agent quantitative trading system that uses four independent Large Language Models (GPT, Claude, Gemini, DeepSeek) as research analysts, fuses their signals via weighted ensemble voting, and executes trades on a MetaTrader 5 demo account through a dedicated trading department.
 
+> 🚧 **2026 upgrade in progress / 大升级进行中** — see the [upgrade plan](docs/roadmap/README.md) (written in Chinese).
+
 ## Architecture
 
 ```
@@ -64,7 +66,7 @@ Research agents focus purely on market direction without needing to know contrac
 ## Installation
 
 ```bash
-git clone https://github.com/<your-username>/multi-agent-quant.git
+git clone https://github.com/Caesarcph/multi-agent-quant.git
 cd multi-agent-quant
 
 python -m venv .venv
@@ -94,7 +96,11 @@ Make sure your MT5 terminal is running and logged into a demo account before sta
 ### Run the Full Trading Loop
 
 ```bash
+# Dry run (default): the full pipeline runs, but no order is sent to MT5
 .\.venv\Scripts\python scripts\run_loop.py
+
+# Send real orders to the demo account
+.\.venv\Scripts\python scripts\run_loop.py --live
 ```
 
 This starts a continuous loop that:

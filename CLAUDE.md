@@ -30,7 +30,11 @@ setx NVIDIA_API_KEY "<your-key>"
 .\.venv\Scripts\python scripts/mt5_smoke.py --count 5
 
 # === MAIN ENTRY POINT: Full Hedge Fund Loop ===
+# Dry run by default: nothing is sent to MT5
 .\.venv\Scripts\python scripts/run_loop.py
+
+# Send real orders to the (demo) account
+.\.venv\Scripts\python scripts/run_loop.py --live
 
 # Test with 1 cycle only
 .\.venv\Scripts\python scripts/run_loop.py --max-cycles 1
@@ -105,10 +109,14 @@ Agents must produce JSON matching `agents/prompts/output_schema.json`. Key field
 - `execution_config.yaml`: Enable/disable live execution, dry_run mode
 
 ### Enabling Live Demo Execution
-1. Set `config/execution_config.yaml`:
-   - `enabled: true`
-   - `dry_run: false`
-2. Ensure MT5 terminal is running and logged into demo account
+- `scripts/run_loop.py`: pass `--live`. Without it every order is a dry run, whatever the config says.
+- `scripts/run_cycle.py` / `orchestrator/cycle.py`: set `enabled: true` and `dry_run: false` in `config/execution_config.yaml`.
+- Ensure MT5 terminal is running and logged into demo account.
+
+### Safety defaults (do not loosen casually)
+- `risk_config.yaml` `enforcement.enabled: true` -- with it off, the 50% drawdown stop, daily limits and exposure limits are skipped.
+- `execution_config.yaml` `use_signal_volume: false`, `use_risk_sizing: true` -- lot size comes from the risk budget and stop distance; an LLM-proposed volume can only shrink it (`risk/position_sizer.py::size_order`).
+- Downstream code must act on `fusion.fusion_engine.decision_signal(fused)`, not `fused["representative_signal"]`: the representative is one model's raw signal and can be BUY/SELL when the ensemble decided HOLD.
 
 ## Code Conventions
 
