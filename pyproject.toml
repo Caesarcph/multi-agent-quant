@@ -15,6 +15,7 @@ dependencies = [
     "PyYAML>=6.0.2",
     "maq-core",
     "maq-cli",
+    "maq-brokers",
 ]
 
 [dependency-groups]
@@ -25,6 +26,7 @@ dev = [
     "ruff>=0.17",
     "mypy>=2.4",
     "types-PyYAML>=6.0",
+    "pytest-asyncio>=1.2",
 ]
 
 [tool.uv]
@@ -38,6 +40,7 @@ members = ["packages/*"]
 [tool.uv.sources]
 maq-core = { workspace = true }
 maq-cli = { workspace = true }
+maq-brokers = { workspace = true }
 
 # --------------------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
@@ -47,6 +50,8 @@ testpaths = ["tests", "packages"]
 # without sys.path hacks, and import test modules by path to avoid basename clashes.
 pythonpath = ["."]
 addopts = ["--import-mode=importlib", "-ra", "--strict-markers"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "mt5_integration: needs a running MetaTrader 5 terminal (set MT5_INTEGRATION=1)",
 ]
@@ -110,6 +115,7 @@ ignore = [
 known-first-party = [
     "maq_core",
     "maq_cli",
+    "maq_brokers",
     "agents",
     "data",
     "deepseek",
@@ -130,5 +136,5 @@ known-first-party = [
 python_version = "3.11"
 strict = true
 plugins = ["pydantic.mypy"]
-files = ["packages/maq-core/src", "packages/maq-cli/src"]
-mypy_path = ["packages/maq-core/src", "packages/maq-cli/src"]
+files = ["packages/maq-core/src", "packages/maq-cli/src", "packages/maq-brokers/src"]
+mypy_path = ["packages/maq-core/src", "packages/maq-cli/src", "packages/maq-brokers/src"]

@@ -9,6 +9,7 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "maq-brokers",
     "maq-cli",
     "maq-core",
     "multi-agent-quant",
@@ -669,6 +670,17 @@ wheels = [
 ]
 
 [[package]]
+name = "maq-brokers"
+version = "0.1.0"
+source = { editable = "packages/maq-brokers" }
+dependencies = [
+    { name = "maq-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "maq-core", editable = "packages/maq-core" }]
+
+[[package]]
 name = "maq-cli"
 version = "0.1.0"
 source = { editable = "packages/maq-cli" }
@@ -744,6 +756,7 @@ version = "0.2.0"
 source = { virtual = "." }
 dependencies = [
     { name = "jsonschema" },
+    { name = "maq-brokers" },
     { name = "maq-cli" },
     { name = "maq-core" },
     { name = "metatrader5", marker = "sys_platform == 'win32'" },
@@ -758,6 +771,7 @@ dev = [
     { name = "hypothesis" },
     { name = "mypy" },
     { name = "pytest" },
+    { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "ruff" },
     { name = "types-pyyaml" },
@@ -766,6 +780,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "jsonschema", specifier = ">=4.23" },
+    { name = "maq-brokers", editable = "packages/maq-brokers" },
     { name = "maq-cli", editable = "packages/maq-cli" },
     { name = "maq-core", editable = "packages/maq-core" },
     { name = "metatrader5", marker = "sys_platform == 'win32'", specifier = ">=5.0.5509" },
@@ -779,6 +794,7 @@ dev = [
     { name = "hypothesis", specifier = ">=6.170" },
     { name = "mypy", specifier = ">=2.4" },
     { name = "pytest", specifier = ">=9.0" },
+    { name = "pytest-asyncio", specifier = ">=1.2" },
     { name = "pytest-cov", specifier = ">=7.0" },
     { name = "ruff", specifier = ">=0.17" },
     { name = "types-pyyaml", specifier = ">=6.0" },
@@ -1231,6 +1247,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/79/42/bb4641652e58dedeac2ec51abc1f8cae4fee4ec63899a0999016229a0f2a/pytest-9.2.0.tar.gz", hash = "sha256:97c4f3b1f3c7414aa36465e09b8220f1d03627993bd51b1282e193753c80557b", size = 1797555, upload-time = "2026-10-27T21:30:20.728Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/51/39/1f5d8c8877a0fa327db959c19341d4be61660de1ab6b7391f9eb805bcd67/pytest-9.2.0-py3-none-any.whl", hash = "sha256:07acdcf88ec174f907dc01af70bf52d49b014bbab03faeeade31c96b18c2e588", size = 411776, upload-time = "2026-10-27T21:30:19.131Z" },
+]
+
+[[package]]
+name = "pytest-asyncio"
+version = "1.4.1.post1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/73/7f/c60a4338420b33453d4f814ac0c930abd399f162b9bdd21af4b9e363037f/pytest_asyncio-1.4.1.post1.tar.gz", hash = "sha256:f582d9ea4a1c082195abe8bd29a1fe106aeb1cd435e3dad2d3bc2749935c36a2", size = 145360, upload-time = "2026-11-01T18:26:03.732Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e3/de/adbc7578959cfab07e5e7c05cf6d54224a51e7667ea2c07458b6bc571e75/pytest_asyncio-1.4.1.post1-py3-none-any.whl", hash = "sha256:0755e488cc0a2b9bd2eab7292cc6390d4cbb8390f1020745647bae5a708e0165", size = 17140, upload-time = "2026-11-01T18:26:02.168Z" },
 ]
 
 [[package]]
