@@ -7,6 +7,7 @@ import os
 import shlex
 import subprocess
 import tempfile
+from pathlib import Path
 from typing import Any
 
 from agents.base_agent import AgentConfig, BaseAgent
@@ -43,10 +44,17 @@ class CLICompletionAgent(BaseAgent):
         cmd = shlex.split(self.command) + self.args
         output_file = None
         if "{output_file}" in cmd:
-            handle = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
-            output_file = handle.name
-            handle.close()
+            fd, output_file = tempfile.mkstemp(suffix=".txt")
+            os.close(fd)
             cmd = [output_file if arg == "{output_file}" else arg for arg in cmd]
+        try:
+            return self._run_cli_command(cmd, prompt, output_file)
+        finally:
+            # Clean up even when the CLI fails or times out.
+            if output_file and os.path.exists(output_file):
+                os.remove(output_file)
+
+    def _run_cli_command(self, cmd: list[str], prompt: str, output_file: str | None) -> str:
         if os.name == "nt":
             cmdline = subprocess.list2cmdline(cmd)
             result = subprocess.run(
@@ -71,8 +79,7 @@ class CLICompletionAgent(BaseAgent):
             raise RuntimeError(f"CLI command failed ({result.returncode}): {result.stderr.strip()}")
         output_text = result.stdout.strip()
         if output_file and os.path.exists(output_file):
-            output_text = open(output_file, encoding="utf-8", errors="ignore").read().strip()
-            os.remove(output_file)
+            output_text = Path(output_file).read_text(encoding="utf-8", errors="ignore").strip()
 
         if self.response_json_field:
             payload = json.loads(output_text)
