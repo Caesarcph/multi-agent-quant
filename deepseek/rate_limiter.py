@@ -1,9 +1,9 @@
 """Simple rate limiter for DeepSeek requests."""
+
 from __future__ import annotations
 
 import time
 from collections import deque
-from typing import Deque
 
 
 class DeepSeekRateLimiter:
@@ -11,7 +11,7 @@ class DeepSeekRateLimiter:
         self._rpm_limit = max(1, int(rpm_limit))
         self._safety_margin = max(0.0, float(safety_margin))
         self._window_seconds = 60.0
-        self._timestamps: Deque[float] = deque()
+        self._timestamps: deque[float] = deque()
 
     @property
     def limit(self) -> int:

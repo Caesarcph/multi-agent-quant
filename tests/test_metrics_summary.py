@@ -1,4 +1,5 @@
 """Tests for cycle metrics summary."""
+
 from __future__ import annotations
 
 from data.metrics import summarize_cycle

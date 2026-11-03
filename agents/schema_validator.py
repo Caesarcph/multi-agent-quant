@@ -1,16 +1,16 @@
 """JSON schema validation for agent signals."""
+
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from jsonschema import Draft7Validator
-
 
 # Fields where LLMs commonly output negative values but mean the absolute value
 _ABS_FIELDS = {"volume", "stop_loss_pips", "take_profit_pips", "ttl_minutes"}
 
 
-def _sanitize_signal(signal: Dict[str, Any]) -> Dict[str, Any]:
+def _sanitize_signal(signal: dict[str, Any]) -> dict[str, Any]:
     """Fix common LLM output mistakes before schema validation."""
     out = dict(signal)
 
@@ -31,7 +31,7 @@ def _sanitize_signal(signal: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def validate_signal(signal: Dict[str, Any], schema: Dict[str, Any]) -> None:
+def validate_signal(signal: dict[str, Any], schema: dict[str, Any]) -> None:
     sanitized = _sanitize_signal(signal)
     # Mutate original so callers get the cleaned values
     signal.update(sanitized)

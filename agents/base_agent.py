@@ -1,9 +1,10 @@
 """Agent base classes and shared configuration."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass
@@ -17,7 +18,7 @@ class AgentConfig:
 
 
 class BaseAgent(ABC):
-    def __init__(self, config: AgentConfig, schema: Dict[str, Any], system_prompt: str) -> None:
+    def __init__(self, config: AgentConfig, schema: dict[str, Any], system_prompt: str) -> None:
         self.name = config.name
         self.model = config.model
         self.config = config
@@ -25,6 +26,6 @@ class BaseAgent(ABC):
         self.system_prompt = system_prompt
 
     @abstractmethod
-    def generate_signal(self, snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_signal(self, snapshot: dict[str, Any]) -> dict[str, Any]:
         """Return a validated signal dict."""
         raise NotImplementedError

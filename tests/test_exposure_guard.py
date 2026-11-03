@@ -1,4 +1,5 @@
 """Tests for exposure guard."""
+
 from __future__ import annotations
 
 from risk.exposure_guard import check_exposure_limits

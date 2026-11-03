@@ -1,11 +1,12 @@
 """Account-level risk controls."""
+
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
-def _drawdown_multiplier(drawdown: float, throttles: Dict[str, Any]) -> float:
+def _drawdown_multiplier(drawdown: float, throttles: dict[str, Any]) -> float:
     multiplier = 1.0
     for raw_threshold, raw_value in throttles.items():
         try:
@@ -19,12 +20,12 @@ def _drawdown_multiplier(drawdown: float, throttles: Dict[str, Any]) -> float:
 
 
 def apply_account_limits(
-    signal: Dict[str, Any],
-    account_state: Dict[str, Any] | None,
-    config: Dict[str, Any],
-) -> Tuple[Dict[str, Any], List[str]]:
+    signal: dict[str, Any],
+    account_state: dict[str, Any] | None,
+    config: dict[str, Any],
+) -> tuple[dict[str, Any], list[str]]:
     output = deepcopy(signal)
-    notes: List[str] = []
+    notes: list[str] = []
     if not account_state:
         return output, notes
 

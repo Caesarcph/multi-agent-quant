@@ -1,8 +1,9 @@
 """Agent factory from YAML config."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Iterable, List
+from typing import Any
 
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.cli_agent import CLICompletionAgent
@@ -11,7 +12,7 @@ from agents.prompt_loader import load_output_schema, load_system_prompt
 from tools.config_loader import load_yaml
 
 
-def _ensure_list(value: Any) -> List[str]:
+def _ensure_list(value: Any) -> list[str]:
     if value is None:
         return []
     if isinstance(value, list):
@@ -41,7 +42,9 @@ def load_agents(config_dir: Path) -> list[BaseAgent]:
             raise RuntimeError(f"Missing CLI command for {name} in model_config.yaml")
         args = _ensure_list(cfg.get("args", cli_defaults.get("args")))
         timeout = cfg.get("timeout_seconds", cli_defaults.get("timeout_seconds", 120))
-        response_json_field = cfg.get("response_json_field", cli_defaults.get("response_json_field"))
+        response_json_field = cfg.get(
+            "response_json_field", cli_defaults.get("response_json_field")
+        )
         model_name = cfg.get("model", name)
         agent_cfg = AgentConfig(name=name, model=model_name)
         agents.append(

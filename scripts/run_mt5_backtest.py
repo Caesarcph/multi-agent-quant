@@ -1,4 +1,5 @@
 """Run MT5-backed backtest using cycle logs."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,7 +9,6 @@ from pathlib import Path
 from data.reporting import load_cycles
 from tools.config_loader import load_yaml
 from validation.mt5_backtest import run_mt5_backtest
-
 
 repo_root = Path(__file__).resolve().parents[1]
 

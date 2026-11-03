@@ -7,6 +7,7 @@ A real hedge fund simulation with:
 - Full market freedom: agents can trade any symbol
 - Continuous operation: runs until stopped
 """
+
 from __future__ import annotations
 
 import argparse
@@ -16,9 +17,9 @@ import math
 import re
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 repo_root = Path(__file__).resolve().parents[1]
 if str(repo_root) not in sys.path:
@@ -33,10 +34,14 @@ from data.cycle_store import save_cycle
 from data.daily_state import update_daily_state
 from data.market_snapshot import build_snapshot
 from data.metrics import summarize_cycle
-from data.portfolio_state import get_open_positions, get_open_orders
+from data.portfolio_state import get_open_orders, get_open_positions
 from data.trade_history import get_deals_today
-from execution.mt5_executor import execute_signal
+from execution.mt5_executor import execute_signal, flatten_positions
 from fusion.fusion_engine import decision_signal, fuse_signals
+from maq_core.config import ConfigError, live_trading_issues, load_config
+from maq_core.logging import bind_log_context, unbind_log_context
+from maq_risk.kill_switch import KillSwitch, default_path
+from maq_risk.models import KillSwitchMode, KillSwitchState
 from risk.account_guard import apply_account_limits
 from risk.correlation_guard import check_correlation_guard
 from risk.daily_guard import check_daily_limits, compute_daily_stats
@@ -44,10 +49,9 @@ from risk.exposure_guard import check_exposure_limits
 from risk.risk_guard import apply_basic_risk
 from tools import mt5_connection
 from tools.config_loader import load_yaml
+from tools.external_plugins import collect_external_data
 from tools.logging_setup import setup_logging
 from tools.mt5_tools import get_account_info, get_symbols
-from tools.external_plugins import collect_external_data
-
 
 # =============================================================================
 # CONFIGURATION
@@ -61,9 +65,7 @@ MAX_SYMBOLS_PER_SCAN = 20  # Limit symbols per cycle to manage API costs
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Multi-Agent Hedge Fund Trading Loop"
-    )
+    parser = argparse.ArgumentParser(description="Multi-Agent Hedge Fund Trading Loop")
     parser.add_argument(
         "--interval",
         type=int,
@@ -92,7 +94,8 @@ def parse_args() -> argparse.Namespace:
 # MARKET SCANNER
 # =============================================================================
 
-def scan_market_opportunities(mt5_cfg: Dict, logger: logging.Logger) -> List[str]:
+
+def scan_market_opportunities(mt5_cfg: dict, logger: logging.Logger) -> list[str]:
     """
     Scan all available symbols and return top opportunities.
     A real hedge fund would have sophisticated screening here.
@@ -124,7 +127,7 @@ def scan_market_opportunities(mt5_cfg: Dict, logger: logging.Logger) -> List[str
         name = sym.get("name", "")
 
         # Skip special contract variants (e.g., EURUSD99, GBPUSD.i)
-        if re.search(r'\d{2}$', name) or '.' in name or '#' in name:
+        if re.search(r"\d{2}$", name) or "." in name or "#" in name:
             continue
 
         # Prefer forex majors and popular instruments
@@ -156,14 +159,15 @@ def scan_market_opportunities(mt5_cfg: Dict, logger: logging.Logger) -> List[str
 # RESEARCH DEPARTMENT
 # =============================================================================
 
+
 def run_research_department(
     config_dir: Path,
     symbol: str,
     timeframe: str,
     bars: int,
-    mt5_cfg: Dict,
+    mt5_cfg: dict,
     logger: logging.Logger,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Research Department: All available LLMs analyze the symbol independently.
     If an agent fails (rate limit, error), treat as "on vacation".
@@ -195,8 +199,8 @@ def run_research_department(
         mt5_connection.shutdown()
 
     # Collect signals from all agents
-    signals: List[Dict[str, Any]] = []
-    errors: List[Dict[str, Any]] = []
+    signals: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
     active_analysts = []
     vacation_analysts = []
 
@@ -206,7 +210,7 @@ def run_research_department(
     audit_enabled = audit_cfg.get("enabled", False)
     audit_dir = config_dir.parent / audit_cfg.get("directory", "logs/agent_outputs")
 
-    external_errors: List[Dict[str, Any]] = []
+    external_errors: list[dict[str, Any]] = []
     if external_cfg.get("enabled", False):
         ext_cfg = dict(external_cfg)
         ext_cfg.setdefault("symbol", symbol)
@@ -218,10 +222,12 @@ def run_research_department(
             signal = agent.generate_signal(snapshot)
             signals.append(signal)
             active_analysts.append(agent.name)
-            logger.info("  [%s] %s (conf=%.2f)",
-                       agent.name.upper(),
-                       signal.get("action"),
-                       signal.get("confidence", 0))
+            logger.info(
+                "  [%s] %s (conf=%.2f)",
+                agent.name.upper(),
+                signal.get("action"),
+                signal.get("confidence", 0),
+            )
 
             if audit_enabled:
                 log_agent_output(
@@ -249,9 +255,11 @@ def run_research_department(
                     error=str(exc),
                 )
 
-    logger.info("[RESEARCH] Active: %s | On vacation: %s",
-               active_analysts or "None",
-               vacation_analysts or "None")
+    logger.info(
+        "[RESEARCH] Active: %s | On vacation: %s",
+        active_analysts or "None",
+        vacation_analysts or "None",
+    )
 
     if not signals:
         return {
@@ -266,10 +274,12 @@ def run_research_department(
     fusion_cfg = load_yaml(config_dir / "fusion_config.yaml")
     fused = fuse_signals(signals, fusion_cfg)
 
-    logger.info("[RESEARCH] Fusion: %s (agreement=%.2f, score=%.2f)",
-               fused.get("action"),
-               fused.get("agreement_ratio", 0),
-               fused.get("directional_score", 0))
+    logger.info(
+        "[RESEARCH] Fusion: %s (agreement=%.2f, score=%.2f)",
+        fused.get("action"),
+        fused.get("agreement_ratio", 0),
+        fused.get("directional_score", 0),
+    )
 
     return {
         "symbol": symbol,
@@ -288,15 +298,16 @@ def run_research_department(
 # TRADING DEPARTMENT
 # =============================================================================
 
+
 def run_trading_department(
-    research_result: Dict[str, Any],
-    final_signal: Dict[str, Any],
+    research_result: dict[str, Any],
+    final_signal: dict[str, Any],
     trading_agent,
-    mt5_cfg: Dict,
+    mt5_cfg: dict,
     logger: logging.Logger,
-    account_info: Optional[Dict[str, Any]] = None,
-    positions: Optional[List[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
+    account_info: dict[str, Any] | None = None,
+    positions: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """
     Trading Department: Dedicated LLM with MT5 tool access.
     Decides whether to execute and with what parameters.
@@ -347,16 +358,18 @@ def run_trading_department(
             "reason": f"Trading agent error: {exc}",
         }
 
-    logger.info("[TRADING] Decision: %s - %s",
-               decision.get("decision"),
-               decision.get("reason", "")[:100])
+    logger.info(
+        "[TRADING] Decision: %s - %s", decision.get("decision"), decision.get("reason", "")[:100]
+    )
 
     if decision.get("order"):
         order = decision["order"]
-        logger.info("[TRADING] Order: %s %s %.4f lots",
-                   order.get("action"),
-                   order.get("symbol"),
-                   order.get("volume", 0))
+        logger.info(
+            "[TRADING] Order: %s %s %.4f lots",
+            order.get("action"),
+            order.get("symbol"),
+            order.get("volume", 0),
+        )
 
     return decision
 
@@ -365,11 +378,11 @@ def run_trading_department(
 # EXECUTION
 # =============================================================================
 
-def order_risk_fraction(
-    final_signal: Dict[str, Any], risk_cfg: Dict[str, Any]
-) -> Optional[float]:
+
+def order_risk_fraction(final_signal: dict[str, Any], risk_cfg: dict[str, Any]) -> float | None:
     """Risk budget for the order: the guard-adjusted fraction, never above per_trade_risk."""
-    def _to_float(value: Any) -> Optional[float]:
+
+    def _to_float(value: Any) -> float | None:
         try:
             return float(value) if value is not None else None
         except (TypeError, ValueError):
@@ -384,14 +397,14 @@ def order_risk_fraction(
 
 
 def execute_trade(
-    trading_decision: Dict[str, Any],
+    trading_decision: dict[str, Any],
     config_dir: Path,
-    mt5_cfg: Dict,
-    positions: List[Dict],
+    mt5_cfg: dict,
+    positions: list[dict],
     logger: logging.Logger,
     live: bool = False,
-    risk_fraction: Optional[float] = None,
-) -> Dict[str, Any]:
+    risk_fraction: float | None = None,
+) -> dict[str, Any]:
     """
     Execute the trade via MT5.
 
@@ -434,15 +447,15 @@ def execute_trade(
 
     result = execute_signal(signal, execution_cfg, mt5_cfg, positions=positions)
 
-    logger.info("[EXECUTION] Result: %s", result.status if hasattr(result, 'status') else result)
+    logger.info("[EXECUTION] Result: %s", result.status if hasattr(result, "status") else result)
 
     return {
-        "status": result.status if hasattr(result, 'status') else "UNKNOWN",
-        "order_request": result.order_request if hasattr(result, 'order_request') else None,
-        "order_response": result.order_response if hasattr(result, 'order_response') else None,
-        "management": result.management if hasattr(result, 'management') else None,
-        "errors": result.errors if hasattr(result, 'errors') else None,
-        "notes": result.notes if hasattr(result, 'notes') else None,
+        "status": result.status if hasattr(result, "status") else "UNKNOWN",
+        "order_request": result.order_request if hasattr(result, "order_request") else None,
+        "order_response": result.order_response if hasattr(result, "order_response") else None,
+        "management": result.management if hasattr(result, "management") else None,
+        "errors": result.errors if hasattr(result, "errors") else None,
+        "notes": result.notes if hasattr(result, "notes") else None,
     }
 
 
@@ -450,18 +463,66 @@ def execute_trade(
 # MAIN LOOP
 # =============================================================================
 
+
 def next_run_time(interval_minutes: int) -> datetime:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     interval_seconds = max(1, interval_minutes) * 60
-    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    epoch = datetime(1970, 1, 1, tzinfo=UTC)
     elapsed = (now - epoch).total_seconds()
     next_seconds = (math.floor(elapsed / interval_seconds) + 1) * interval_seconds
     return epoch + timedelta(seconds=next_seconds)
 
 
+def kill_switch_for(root: Path) -> KillSwitch:
+    """The kill switch `maq kill-switch` writes to ($MAQ_KILL_SWITCH_FILE or logs/)."""
+    path = default_path()
+    return KillSwitch(path if path.is_absolute() else root / path)
+
+
+def enforce_kill_switch(
+    kill_switch: KillSwitch,
+    flattened_for: datetime | None,
+    *,
+    mt5_cfg: dict[str, Any],
+    execution_cfg: dict[str, Any],
+    live: bool,
+    logger: logging.Logger,
+) -> tuple[KillSwitchState | None, datetime | None]:
+    """Return the kill switch state; on FLATTEN close our positions once per engagement."""
+    state = kill_switch.state()
+    if state is None:
+        return None, flattened_for
+    logger.warning("Kill switch engaged (%s) by %s: %s", state.mode, state.engaged_by, state.reason)
+    if state.mode is KillSwitchMode.FLATTEN and flattened_for != state.engaged_at:
+        mt5_connection.initialize(
+            terminal_path=mt5_cfg.get("terminal_path"),
+            timeout_seconds=mt5_cfg.get("initialize_timeout_seconds", 30),
+        )
+        try:
+            for result in flatten_positions(get_open_positions(), execution_cfg, live=live):
+                logger.warning(
+                    "Kill switch flatten: %s position %s -> %s %s",
+                    result.get("symbol"),
+                    result.get("position"),
+                    result.get("status"),
+                    result.get("error") or "",
+                )
+        finally:
+            mt5_connection.shutdown()
+        flattened_for = state.engaged_at
+    return state, flattened_for
+
+
 def main() -> None:
     args = parse_args()
     config_dir = repo_root / "config"
+
+    # Validate every config file up front, so a typo fails here and not mid-cycle.
+    try:
+        app_config = load_config(config_dir)
+    except ConfigError as error:
+        print(error, file=sys.stderr)
+        raise SystemExit(2) from None
 
     # Setup logging
     tool_cfg = load_yaml(config_dir / "tool_config.yaml")
@@ -484,6 +545,14 @@ def main() -> None:
         logger.info("  Mode: DRY RUN -- no orders are sent (pass --live to trade)")
     logger.info("=" * 70)
 
+    unsafe = live_trading_issues(app_config)
+    if unsafe and args.live:
+        for issue in unsafe:
+            logger.error("Refusing to trade live: %s", issue)
+        raise SystemExit(2)
+    for issue in unsafe:
+        logger.warning("Not allowed with --live: %s", issue)
+
     # Create trading agent
     trading_agent = create_trading_agent(config_dir, mt5_cfg)
     if trading_agent is None:
@@ -492,24 +561,39 @@ def main() -> None:
 
     cycle_dir = repo_root / logging_cfg.get("cycle_dir", "logs/cycles")
     cycle_count = 0
+    kill_switch = kill_switch_for(repo_root)
+    execution_cfg = load_yaml(config_dir / "execution_config.yaml")
+    flattened_for: datetime | None = None
 
     try:
         while True:
-            cycle_start = datetime.now(timezone.utc)
+            cycle_start = datetime.now(UTC)
             cycle_count += 1
+            bind_log_context(cycle=cycle_count)
 
             logger.info("\n" + "=" * 70)
             logger.info("CYCLE %d | %s", cycle_count, cycle_start.strftime("%Y-%m-%d %H:%M:%S UTC"))
             logger.info("=" * 70)
 
+            # A manual stop skips the whole cycle (no research, no orders).
+            halted, flattened_for = enforce_kill_switch(
+                kill_switch,
+                flattened_for,
+                mt5_cfg=mt5_cfg,
+                execution_cfg=execution_cfg,
+                live=args.live,
+                logger=logger,
+            )
+
             # Step 1: Scan market for opportunities
-            symbols = scan_market_opportunities(mt5_cfg, logger)
+            symbols = [] if halted else scan_market_opportunities(mt5_cfg, logger)
 
             if not symbols:
                 logger.warning("No tradeable symbols found. Waiting for next cycle.")
             else:
                 # Step 2: For each symbol, run full pipeline
                 for symbol in symbols:
+                    bind_log_context(symbol=symbol)
                     try:
                         # Research Department
                         research_result = run_research_department(
@@ -522,7 +606,9 @@ def main() -> None:
                         )
 
                         if research_result.get("error"):
-                            logger.error("[%s] Research error: %s", symbol, research_result["error"])
+                            logger.error(
+                                "[%s] Research error: %s", symbol, research_result["error"]
+                            )
                             snapshot = research_result.get("snapshot", {})
                             error_payload = dict(research_result)
                             error_payload["snapshot_meta"] = {
@@ -535,9 +621,9 @@ def main() -> None:
                             continue
 
                         account_info = None
-                        positions: List[Dict[str, Any]] = []
-                        deals_today: List[Dict[str, Any]] = []
-                        correlations: Dict[str, Any] = {}
+                        positions: list[dict[str, Any]] = []
+                        deals_today: list[dict[str, Any]] = []
+                        correlations: dict[str, Any] = {}
 
                         mt5_connection.initialize(
                             terminal_path=mt5_cfg.get("terminal_path"),
@@ -553,7 +639,7 @@ def main() -> None:
                                 corr_tf = corr_cfg.get("timeframe", "M15")
                                 corr_bars = int(corr_cfg.get("bars", 120))
                                 if symbol not in corr_symbols:
-                                    corr_symbols = [symbol] + list(corr_symbols)
+                                    corr_symbols = [symbol, *corr_symbols]
                                 correlations = correlations_from_rates(
                                     corr_symbols,
                                     corr_tf,
@@ -574,7 +660,9 @@ def main() -> None:
                                 risk_cfg.get("account_level", {}),
                             )
 
-                        daily_stats = compute_daily_stats(deals_today)
+                        daily_stats = compute_daily_stats(
+                            deals_today, balance=(account_info or {}).get("balance")
+                        )
                         daily_state = None
                         daily_state_cfg = tool_cfg.get("daily_state", {})
                         if daily_state_cfg.get("enabled", False):
@@ -585,11 +673,9 @@ def main() -> None:
 
                         # Act on the ensemble decision, not one model's raw signal.
                         final_signal = decision_signal(research_result.get("fusion") or {})
-                        risk_notes: List[str] = []
+                        risk_notes: list[str] = []
                         if risk_cfg.get("enforcement", {}).get("enabled", True):
-                            final_signal, risk_notes = apply_basic_risk(
-                                final_signal, risk_cfg
-                            )
+                            final_signal, risk_notes = apply_basic_risk(final_signal, risk_cfg)
                             final_signal, account_notes = apply_account_limits(
                                 final_signal,
                                 account_state,
@@ -637,6 +723,14 @@ def main() -> None:
                             positions=positions,
                         )
 
+                        # Research takes minutes: check the kill switch again before sending.
+                        if kill_switch.state() is not None:
+                            trading_decision = {
+                                "decision": "REJECT",
+                                "reason": "kill switch engaged",
+                            }
+                            risk_notes.append("kill_switch")
+
                         # Execution
                         execution_result = execute_trade(
                             trading_decision=trading_decision,
@@ -675,18 +769,27 @@ def main() -> None:
                         save_cycle(full_result, cycle_dir)
 
                         # Summary
-                        print(json.dumps({
-                            "cycle": cycle_count,
-                            "symbol": symbol,
-                            "research_action": research_result.get("fusion", {}).get("action"),
-                            "final_action": final_signal.get("action"),
-                            "trading_decision": trading_decision.get("decision"),
-                            "execution_status": execution_result.get("status"),
-                        }, indent=2))
+                        print(
+                            json.dumps(
+                                {
+                                    "cycle": cycle_count,
+                                    "symbol": symbol,
+                                    "research_action": research_result.get("fusion", {}).get(
+                                        "action"
+                                    ),
+                                    "final_action": final_signal.get("action"),
+                                    "trading_decision": trading_decision.get("decision"),
+                                    "execution_status": execution_result.get("status"),
+                                },
+                                indent=2,
+                            )
+                        )
 
                     except Exception as exc:
                         logger.exception("[%s] Cycle error", symbol)
                         save_cycle({"symbol": symbol, "error": str(exc)}, cycle_dir)
+
+            unbind_log_context("symbol")
 
             # Check max cycles
             if args.max_cycles and cycle_count >= args.max_cycles:
@@ -695,7 +798,7 @@ def main() -> None:
 
             # Sleep until next interval
             sleep_until = next_run_time(args.interval)
-            sleep_seconds = (sleep_until - datetime.now(timezone.utc)).total_seconds()
+            sleep_seconds = (sleep_until - datetime.now(UTC)).total_seconds()
             if sleep_seconds > 0:
                 logger.info("\nSleeping %.0f seconds until next cycle...\n", sleep_seconds)
                 time.sleep(sleep_seconds)

@@ -1,17 +1,18 @@
 """Performance metric calculations."""
+
 from __future__ import annotations
 
 import json
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def compute_metrics(
-    trades: List[Dict[str, Any]],
-    initial_balance: Optional[float] = None,
-) -> Dict[str, Any]:
+    trades: list[dict[str, Any]],
+    initial_balance: float | None = None,
+) -> dict[str, Any]:
     profits = [float(trade.get("profit", 0.0)) for trade in trades]
     total_trades = len(profits)
     win_trades = [p for p in profits if p > 0]
@@ -43,7 +44,7 @@ def compute_metrics(
     }
 
 
-def _build_equity_curve(profits: List[float], initial_balance: Optional[float]) -> List[float]:
+def _build_equity_curve(profits: list[float], initial_balance: float | None) -> list[float]:
     equity = float(initial_balance) if initial_balance is not None else 0.0
     curve = []
     for profit in profits:
@@ -52,7 +53,7 @@ def _build_equity_curve(profits: List[float], initial_balance: Optional[float]) 
     return curve
 
 
-def _max_drawdown(curve: List[float]) -> float:
+def _max_drawdown(curve: list[float]) -> float:
     if not curve:
         return 0.0
     peak = curve[0]
@@ -66,7 +67,7 @@ def _max_drawdown(curve: List[float]) -> float:
     return max_dd
 
 
-def _stddev(values: List[float]) -> float:
+def _stddev(values: list[float]) -> float:
     if len(values) < 2:
         return 0.0
     mean = sum(values) / len(values)
@@ -74,16 +75,16 @@ def _stddev(values: List[float]) -> float:
     return math.sqrt(variance)
 
 
-def save_metrics(path: Path, metrics: Dict[str, Any]) -> None:
+def save_metrics(path: Path, metrics: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "metrics": metrics,
     }
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def load_metrics(path: Path) -> Optional[Dict[str, Any]]:
+def load_metrics(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:

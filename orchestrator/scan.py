@@ -1,9 +1,10 @@
 """Multi-symbol scan orchestration."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from data.portfolio_state import get_open_positions
 from orchestrator.cycle import run_once
@@ -15,7 +16,7 @@ def _fetch_symbols_and_positions(
     terminal_path: str,
     timeout_seconds: int,
     include_positions: bool,
-) -> tuple[List[str], List[Dict[str, Any]]]:
+) -> tuple[list[str], list[dict[str, Any]]]:
     mt5_connection.initialize(terminal_path=terminal_path, timeout_seconds=timeout_seconds)
     try:
         symbols = [info.get("name") for info in mt5_tools.get_symbols()]
@@ -28,8 +29,8 @@ def _fetch_symbols_and_positions(
 
 def resolve_scan_symbols(
     config_dir: Path,
-    override_symbols: Optional[List[str]] = None,
-) -> List[str]:
+    override_symbols: list[str] | None = None,
+) -> list[str]:
     tool_cfg = load_yaml(config_dir / "tool_config.yaml")
     mt5_cfg = tool_cfg.get("mt5", {})
     snapshot_cfg = tool_cfg.get("snapshot", {})
@@ -46,7 +47,7 @@ def resolve_scan_symbols(
         raise RuntimeError("mt5.terminal_path is required in config/tool_config.yaml")
 
     timeout_seconds = mt5_cfg.get("initialize_timeout_seconds", 30)
-    positions: List[Dict[str, Any]] = []
+    positions: list[dict[str, Any]] = []
 
     if not symbols:
         symbols, positions = _fetch_symbols_and_positions(
@@ -70,14 +71,14 @@ def resolve_scan_symbols(
 
 def run_scan_once(
     config_dir: Path,
-    symbols: Optional[List[str]] = None,
-    timeframe: Optional[str] = None,
-    bars: Optional[int] = None,
-    include_agents: Optional[List[str]] = None,
-) -> Dict[str, Any]:
+    symbols: list[str] | None = None,
+    timeframe: str | None = None,
+    bars: int | None = None,
+    include_agents: list[str] | None = None,
+) -> dict[str, Any]:
     symbols = symbols or resolve_scan_symbols(config_dir)
-    results: List[Dict[str, Any]] = []
-    errors: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
 
     for symbol in symbols:
         try:
@@ -89,11 +90,11 @@ def run_scan_once(
                 include_agents=include_agents,
             )
             results.append(result)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             errors.append({"symbol": symbol, "error": str(exc)})
 
     return {
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "symbols": symbols,
         "results": results,
         "errors": errors,

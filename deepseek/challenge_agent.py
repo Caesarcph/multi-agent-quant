@@ -1,15 +1,16 @@
 """DeepSeek challenge agent for split decisions."""
+
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from deepseek.client import DeepSeekClient
 from deepseek.utils import parse_json_output
 
 
-def _build_signal_summary(signals: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    summary: Dict[str, Dict[str, Any]] = {}
+def _build_signal_summary(signals: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    summary: dict[str, dict[str, Any]] = {}
     for signal in signals:
         model = signal.get("model")
         if not model:
@@ -23,7 +24,7 @@ def _build_signal_summary(signals: List[Dict[str, Any]]) -> Dict[str, Dict[str, 
     return summary
 
 
-def _snapshot_summary(snapshot: Dict[str, Any]) -> Dict[str, Any]:
+def _snapshot_summary(snapshot: dict[str, Any]) -> dict[str, Any]:
     rates = snapshot.get("rates", []) or []
     return {
         "symbol": snapshot.get("symbol"),
@@ -36,9 +37,9 @@ def _snapshot_summary(snapshot: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def build_challenge_prompt(
-    fusion_result: Dict[str, Any],
-    signals: List[Dict[str, Any]],
-    snapshot: Dict[str, Any],
+    fusion_result: dict[str, Any],
+    signals: list[dict[str, Any]],
+    snapshot: dict[str, Any],
 ) -> str:
     summary = _build_signal_summary(signals)
     snapshot_compact = _snapshot_summary(snapshot)
@@ -62,10 +63,10 @@ def build_challenge_prompt(
 
 
 def apply_challenge_result(
-    signal: Dict[str, Any],
-    challenge: Dict[str, Any],
-    config: Dict[str, Any],
-) -> Dict[str, Any]:
+    signal: dict[str, Any],
+    challenge: dict[str, Any],
+    config: dict[str, Any],
+) -> dict[str, Any]:
     if not config.get("apply_result", False):
         return signal
 
@@ -94,17 +95,17 @@ def apply_challenge_result(
 
 
 class DeepSeekChallengeAgent:
-    def __init__(self, client: DeepSeekClient, config: Dict[str, Any]) -> None:
+    def __init__(self, client: DeepSeekClient, config: dict[str, Any]) -> None:
         self._client = client
         self._config = config
-        self.last_raw_output: Optional[str] = None
+        self.last_raw_output: str | None = None
 
     def challenge_decision(
         self,
-        fusion_result: Dict[str, Any],
-        signals: List[Dict[str, Any]],
-        snapshot: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        fusion_result: dict[str, Any],
+        signals: list[dict[str, Any]],
+        snapshot: dict[str, Any],
+    ) -> dict[str, Any]:
         prompt = build_challenge_prompt(fusion_result, signals, snapshot)
         raw_output = self._client.analyze(prompt, task="challenge")
         self.last_raw_output = raw_output

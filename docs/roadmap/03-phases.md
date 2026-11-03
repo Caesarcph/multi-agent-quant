@@ -43,7 +43,7 @@
 | P0-07 | ✅ 补 `LICENSE` 文件（README 里已经声明是 MIT） | LRM | P1 | 0.1h | 仓库根目录有 LICENSE |
 | P0-08 | ✅ 修 README：集成表改成 🔜 Planned、更新过时的模型名；修 `ROADMAP.md` / `CONTRIBUTING.md` 的字面量 `\n` | LBF | P1 | 0.5h | GitHub 页面显示正常，没有夸大的描述 |
 | P0-09 | ✅ 更新过时的 `AGENTS.md`，修 README 里的 `<your-username>` | MAQ | P1 | 0.5h | 文档和代码一致 |
-| P0-10 | **写 4 篇 ADR（架构决策记录）**：仓库结构、Agent 框架、UI 技术栈、MT5 部署方式 | MAQ | P0 | 2–3h | `docs/adr/` 下有 4 篇 ADR，每篇写清"背景 / 选项 / 决定 / 后果" |
+| P0-10 | ✅ **写 4 篇 ADR（架构决策记录）**：仓库结构、Agent 框架、UI 技术栈、MT5 部署方式 | MAQ | P0 | 2–3h | `docs/adr/` 下有 4 篇 ADR，每篇写清"背景 / 选项 / 决定 / 后果" |
 | P0-11 | **采集升级前基线**：用修好风控的旧系统在模拟盘跑满一周，记录每轮耗时、模型失败率、交易次数、盈亏 | MAQ | P1 | 持续 1 周 | 一份基线报告，升级后拿来做对比 |
 | P0-12 | **确认 DeepSeek 端点还能用**：多家托管商已经下线 V3.2，DeepSeek 官方旧模型名也已停用。把模型 ID 从代码里抽到配置，准备切到 V4（Flash 做快速档、Pro 做主力档） | MAQ | P0 | 1h | 端点可用性有结论；换模型只改一行配置 |
 | P0-13 | **快速见效**：三个 CLI 都换成原生的 Schema 参数（`codex exec --output-schema`、`claude -p --output-format json --json-schema`、`gemini -p --output-format json`，以各 CLI 当前版本的帮助文档为准），先把 JSON 解析失败率压下来 | MAQ | P1 | 2h | 解析失败率明显低于基线 |
@@ -60,21 +60,24 @@
 
 | ID | 任务 | 优先级 | 工作量 | 验收标准 |
 |---|---|---|---|---|
-| P1-01 | 建 uv workspace：根 `pyproject.toml` + `packages/*`，旧代码先整体搬进 `packages/maq-legacy`，保证能跑 | P0 | 4h | `uv sync && uv run pytest` 全绿 |
-| P1-02 | Ruff 接管 lint 和格式化（替代 black），一次性修掉存量问题 | P0 | 2h | `ruff check` / `ruff format --check` 零报错 |
-| P1-03 | 类型检查：Pyrefly 或 mypy 做 CI 门禁，编辑器里用 basedpyright；老代码宽松，新包一律严格 | P1 | 3h | CI 里类型检查零错误 |
-| P1-04 | Git hooks 用 prek（兼容 pre-commit 配置）：ruff、类型检查、gitleaks（防止把 key 提交上去）、zizmor（检查 workflow 安全） | P1 | 1h | 提交时自动执行 |
-| P1-05 | GitHub Actions：Ubuntu 跑 lint / 类型 / 测试，Windows 跑 Gateway 相关测试，上报覆盖率；依赖用 `uv.lock` 带哈希锁定，action 按 commit SHA 固定 | P0 | 4h | PR 上能看到两个平台的检查结果 |
-| P1-06 | `maq-core`：领域模型（Pydantic v2）、事件定义、时钟抽象（实时时钟 / 回放时钟） | P0 | 8h | 模型有完整的单测和 JSON Schema 导出 |
-| P1-07 | 统一配置：pydantic-settings 分层加载（默认值 → 配置文件 → 环境变量 → 命令行），附带把旧的 7 个 YAML 转成新格式的迁移脚本 | P0 | 6h | 键名拼错会报出清楚的错误信息 |
-| P1-08 | structlog + OpenTelemetry 基础接线 | P1 | 3h | 本地能看到 JSON 日志和 trace |
-| P1-09 | Typer CLI 骨架：`maq doctor`（一个命令替代原来的 5 套诊断脚本）、`maq config show` | P1 | 4h | `maq doctor` 能检查 Python 版本、依赖、API key、MT5 Gateway 连通性 |
-| P1-10 | 测试基建：`FakeBroker`、LLM 调用录制回放（pytest-recording）、Hypothesis、`inline-snapshot` | P0 | 6h | CI 里不调用任何真实 API |
-| P1-11 | 文档站骨架（Zensical，中英双语）+ `docs/adr/` | P2 | 3h | 本地能预览 |
-| P1-12 | Dockerfile（多阶段构建 + uv）+ devcontainer | P1 | 3h | `docker build` 成功，镜像 < 300MB |
-| P1-13 | Renovate 自动更新依赖 | P2 | 1h | 能自动开依赖升级 PR |
+| P1-01 | ✅ 建 uv workspace：根 `pyproject.toml` + `packages/*`。**做法有调整**：旧代码没有整体搬进 `packages/maq-legacy`，而是原地留在仓库根目录（根项目是不打包的 workspace 根），这样所有 import 和 Windows 上的运行方式都不用改，新代码进 `packages/`，旧代码按阶段迁出 | P0 | 4h | `uv sync && uv run pytest` 全绿 |
+| P1-02 | ✅ Ruff 接管 lint 和格式化（替代 black），一次性修掉存量问题（行宽定为 100，和代码原本的写法一致，改动量减半） | P0 | 2h | `ruff check` / `ruff format --check` 零报错 |
+| P1-03 | ✅ 类型检查：选了 mypy（strict）做门禁，覆盖 `packages/`；老代码暂不检查 | P1 | 3h | CI 里类型检查零错误 |
+| P1-04 | ✅ Git hooks（pre-commit / prek 都能用）：ruff、mypy、配置校验、requirements 导出、基础卫生检查。密钥扫描先用 `detect-private-key`，gitleaks 待补；zizmor 已对 workflow 跑过、零问题，尚未接入 CI | P1 | 1h | 提交时自动执行 |
+| P1-05 | ✅ GitHub Actions：Ubuntu（Python 3.11 / 3.13）+ Windows（3.13，装真实 MetaTrader5 包）跑测试，覆盖率门槛 40%；lint、格式、mypy、配置校验单独一个 job；`UV_LOCKED` 强制锁文件一致；action 按 commit SHA 固定 | P0 | 4h | PR 上能看到两个平台的检查结果 |
+| P1-06 | ✅ `maq-core`：阶段 1 建好包（配置、日志）；**领域模型、事件、时钟按 [ADR-0006](../adr/0006-defer-domain-models.md) 在阶段 2 和 `Broker` 接口一起完成**（P2-01） | P0 | 8h | 移到 P2-01 |
+| P1-07 | ✅ 统一配置：**做法有调整**，见 [ADR-0005](../adr/0005-config-validation.md)。7 个 YAML 格式不变，加严格的 schema 校验、代码里的硬上限（单笔 ≤ 2%、当日 ≤ 10%、回撤 ≤ 50%）、`MAQ_*` 环境变量覆盖；旧代码通过 `load_yaml` 透明受益；`--live` 遇到不安全设置拒绝启动 | P0 | 6h | 键名拼错会报出清楚的错误信息 |
+| P1-08 | ✅ structlog：控制台 + 可轮转的文本日志 + JSONL，每行带 `cycle` / `symbol`。OpenTelemetry 推迟到阶段 4 / 7（那时才有值得打点的 span） | P1 | 3h | 本地能看到 JSON 日志 |
+| P1-09 | ✅ `maq` 命令：`doctor`（Python、依赖、MT5、配置、实盘安全、终端路径、API key、CLI 分析师、日志目录）、`config validate`、`config show` | P1 | 4h | `maq doctor` 能指出机器缺什么 |
+| P1-10 | ✅ 测试基建：假 MT5 终端（`tests/fakes/mt5.py`）、假 OpenAI 兼容服务（`tests/fakes/llm_server.py`，走真实 SDK 和 HTTP，比录制回放更稳）、Hypothesis 性质测试。`FakeBroker` 随阶段 2 的 Broker 接口一起做 | P0 | 6h | CI 里不调用任何真实 API |
+| P1-11 | ⏭ 文档站推迟到阶段 9；`docs/adr/` 已建立（4 篇待拍板 + 2 篇已采纳） | P2 | 3h | — |
+| P1-12 | ⏭ Docker 推迟：MT5 Gateway（阶段 2）出现之前，没有能独立跑在容器里的部分 | P1 | 3h | — |
+| P1-13 | ✅ 依赖自动更新：用了 Dependabot（GitHub 自带、已支持 uv，不用额外装应用），代替 Renovate | P2 | 1h | 能自动开依赖升级 PR |
+| P1-14 | ✅ （动手时发现）**MT5 下单的 filling 模式一直传错**：`symbol_info.filling_mode` 是"允许模式"的位掩码，却被当成订单的枚举值直接用，这就是 PROGRESS.md 里 "Unsupported filling mode" 拒单的根源 | P0 | 2h | 有测试，旧代码上会失败 |
+| P1-15 | ✅ （动手时发现）**交易部可以下研究部没让下的单**：LLM 回一个别的品种、反方向的 EXECUTE 也会被执行；MODIFY 完全不校验。现在只能执行研究部决定的品种和方向，其余一律 REJECT | P0 | 2h | 同上 |
+| P1-16 | ✅ （动手时发现）模型输出里的 `NaN` / `Infinity` 能骗过所有范围检查（和 NaN 比较永远是 false），现在解析时当作空值；手数取整改成向下取整，不再因为四舍五入超出风险预算；CLI 分析师失败时临时文件泄漏 | P1 | 2h | 同上 |
 
-**M1 验收**：CI 全绿；新人 clone 下来 `uv sync` 一条命令装好；旧功能一个没丢。
+**M1 验收**：CI 全绿；新人 clone 下来 `uv sync` 一条命令装好；旧功能一个没丢。——✅ 2026-11-03 达成（CI 首次运行结果见对应 PR）。测试从 48 个增加到 162 个，覆盖率从约 23% 提高到约 41%。
 
 ---
 
@@ -84,17 +87,17 @@
 
 | ID | 任务 | 优先级 | 工作量 | 验收标准 |
 |---|---|---|---|---|
-| P2-01 | 定义 `Broker` 协议 + 一套契约测试 | P0 | 4h | 契约测试覆盖账户、持仓、规格、K 线、下单、撤单、事件流 |
-| P2-02 | **MT5 Gateway 服务**：FastAPI，单线程独占 MetaTrader5 连接，REST + WebSocket，token 鉴权，心跳和断线重连 | P0 | 12h | 在 Windows 上跑 24 小时不掉线；断网恢复后自动重连 |
-| P2-03 | `Mt5GatewayBroker` 客户端（httpx 异步 + WebSocket） | P0 | 6h | 契约测试在真实模拟盘上全部通过 |
-| P2-04 | `PaperBroker`：点差、滑点、手续费、隔夜利息模型 | P0 | 8h | 契约测试通过；成本模型参数可配置 |
+| P2-01 | ✅ 定义 `Broker` 协议 + 一套契约测试。原 P1-06 的领域模型、事件、时钟也在这一步做了（`maq-core`）。契约测试 24 项，同时跑在三条链路上：`PaperBroker`、`Mt5Broker` + 模拟交易服务器、客户端 → HTTP → Gateway（见 [ADR-0007](../adr/0007-gateway-and-testing-without-windows.md)） | P0 | 4h | 契约测试覆盖账户、持仓、规格、K 线、下单、撤单、事件流 |
+| P2-02 | 🟡 **MT5 Gateway 服务**（`services/mt5-gateway`）：FastAPI，单线程独占 MetaTrader5 连接，REST + **长轮询**事件（代替 WebSocket，理由见 ADR-0007），token 鉴权。代码和测试已完成；"Windows 上跑 24 小时"等上了 Windows 再验收 | P0 | 12h | 在 Windows 上跑 24 小时不掉线；断网恢复后自动重连 |
+| P2-03 | 🟡 `Mt5GatewayBroker` 客户端（httpx 异步 + 长轮询）和 `Mt5Broker` 适配器：已在模拟交易服务器上通过全部契约测试；真实模拟盘上的验收顺延 | P0 | 6h | 契约测试在真实模拟盘上全部通过 |
+| P2-04 | ✅ `PaperBroker`：买卖价成交、滑点、手续费、隔夜利息（周三三倍）、挂单和过期、保证金和强平；可以跑在回放数据上，也可以叠在任意实时行情源上做纸面交易 | P0 | 8h | 契约测试通过；成本模型参数可配置 |
 | P2-05 | 历史数据管道：MT5 导出 → Parquet 分区 → DuckDB 查询；数据质量检查（缺口、重复、异常跳变） | P0 | 8h | 一条命令下载 3 年 EURUSD M15，附带数据质量报告 |
 | P2-06 | `SnapshotBuilder` v2：只能看到 `as_of` 之前的数据、内容哈希、快照落盘 | P0 | 6h | 同一个 `as_of` 两次构建得到相同哈希；用"未来数据探针"做测试，确认取不到未来数据 |
 | P2-07 | 指标统一：常用指标直接用 TA-Lib（新版已经自带各平台 wheel），自定义指标用 Polars 实现 | P1 | 4h | 和旧实现逐一对拍，误差 < 1e-9 |
 | P2-08 | 外部数据插件异步化；把经济日历从 llm-rl-mt5-trading 迁过来 | P1 | 6h | 快照里能看到未来 24 小时的重大经济数据 |
 | P2-09 | （探索）Linux 上跑 MT5：对比官方 Wine 脚本、mt5linux、gmag11 Docker 镜像，挑一个给开发和 CI 用 | P2 | 8h | 出一份可行性结论 |
 
-**M2 验收**：在 Mac / Linux 上就能用 `PaperBroker` + 历史数据完整开发和测试；只有连真实账户时才需要 Windows。
+**M2 验收**：在 Mac / Linux 上就能用 `PaperBroker` + 历史数据完整开发和测试；只有连真实账户时才需要 Windows。——🟡 2026-11-03：`PaperBroker`、MT5 适配器和 Gateway 都能在 Linux 上开发和测试了；历史数据管道（P2-05～P2-07）还没做。
 
 ---
 
@@ -104,20 +107,20 @@
 
 | ID | 任务 | 优先级 | 工作量 | 验收标准 |
 |---|---|---|---|---|
-| P3-01 | `RiskLimits`：硬上限写在代码里，配置只能往紧了调 | P0 | 3h | 配置里写一个比硬上限更松的值，启动直接报错 |
-| P3-02 | 事前检查全集：必须有止损、止损距离（按 ATR）、风险回报比、点差、交易时段、**重大数据前后禁开仓**、信号过期（TTL）、价格偏离（防止模型编价位） | P0 | 10h | 每一项都有正反两组测试 |
-| P3-03 | 仓位计算器：风险预算 × 置信度系数 × 回撤系数，再按保证金 / 敞口 / 相关性逐级截断，最后按 `volume_min / volume_step / volume_max` 取整 | P0 | 6h | 提案里写"10 手"也没用，最终手数完全由计算器决定 |
-| P3-04 | 熔断器：当日亏损、账户回撤、API 错误率、Schema 失败率、LLM 日成本——任一触发就暂停开新仓 | P0 | 6h | 每种熔断都有模拟触发的测试 |
-| P3-05 | 人工急停：CLI 命令 + Telegram 指令，分"只停新开仓"和"全部平仓"两档 | P0 | 4h | 从按下到生效 < 5 秒 |
-| P3-06 | 订单状态机 + **先落盘再发送** + 幂等键 + 对账循环 | P0 | 10h | 断线重试不会重复下单；发现"孤儿仓位"立即告警 |
+| P3-01 | ✅ `RiskLimits`：配置 schema 拒绝比硬上限更松的值；`RiskLimits` 自己再校验一遍，代码里直接构造也松不了 | P0 | 3h | 配置里写一个比硬上限更松的值，启动直接报错 |
+| P3-02 | ✅ 事前检查全集：止损必填、止损距离（按 ATR）、风险回报比、点差（绝对值和相对止损）、交易时段、**重大数据前后禁开仓**、信号过期（按快照时间，不信模型自己写的时间戳）、价格接地；另有急停、熔断、回撤、当日盈亏、持仓数、相关性、授权书。规则取舍见 [ADR-0008](../adr/0008-risk-kernel-rules.md) | P0 | 10h | 每一项都有正反两组测试 |
+| P3-03 | ✅ 仓位计算器：`min(余额, 净值)` × 单笔风险 × 置信度系数 × 回撤系数 ÷ 止损处每手亏损（含手续费），再按请求手数、单笔上限、授权书、保证金余量、当日剩余手数逐级截断，向下取整到手数步长；低于最小手数直接拒绝 | P0 | 6h | 提案里写"10 手"也没用，最终手数完全由计算器决定 |
+| P3-04 | 🟡 熔断器：API 错误率、Schema 失败率、LLM 日成本已实现（`CircuitBreakers`，带冷却期）；当日亏损和回撤在事前检查里。数据来源要等阶段 4 的 Agent 层接上 | P0 | 6h | 每种熔断都有模拟触发的测试 |
+| P3-05 | 🟡 人工急停：`maq kill-switch engage --mode halt_new`（或 `flatten`），旧主循环（每轮开始和下单前）和新流水线（每次下单前）都会读同一个状态文件；`flatten` 只平本系统 magic 号的仓位，每次拉闸只执行一次。Telegram 指令待做 | P0 | 4h | 从按下到生效 < 5 秒 |
+| P3-06 | ✅ 订单状态机 + **先落盘再发送** + 幂等键 + 对账：发送途中断线时去券商查结果而不是猜；查询本身失败时绝不判定"没成交"；重启后从事件日志重建状态；对账发现孤儿仓位（只报一次）、补记停机期间被止损的平仓 | P0 | 10h | 断线重试不会重复下单；发现"孤儿仓位"立即告警 |
 | P3-07 | 分阶段放量（迁移 FundManager）+ 升级上线门槛检查 | P1 | 6h | 达不到当前阶段的门槛就不能升级仓位 |
 | P3-08 | 移动止损 / 保本止损（迁移 PositionManager） | P1 | 4h | 回测里能看到止损随价格移动 |
-| P3-09 | Hypothesis 性质测试："任意输入下，单笔风险都不超过上限"、"手数永远合规" | P0 | 4h | 10 万个随机样例无反例 |
-| P3-10 | 能力分级的账户配置（`paper` / `live-readonly` / `live-trade`）+ 实盘**授权书（mandate）**：写明允许的品种、最大仓位、有效期 | P0 | 4h | 没有有效授权书时，实盘下单请求一律被拒 |
+| P3-09 | ✅ Hypothesis 性质测试："风险永远不超预算""手数永远合规且不超过任何一道上限""没有止损或急停时绝不下单"。CI 每条跑 200 个样例，`HYPOTHESIS_PROFILE=thorough` 跑 10 万个；2026-11-03 跑满 3 × 10 万个，0 反例 | P0 | 4h | 10 万个随机样例无反例 |
+| P3-10 | 🟡 实盘**授权书（mandate）**已做：真钱账户没有有效授权书一律拒单（账户类型读不出来时按真钱处理），授权书里的品种、手数、风险上限会参与截断。`paper` / `live-readonly` / `live-trade` 能力分级待做 | P0 | 4h | 没有有效授权书时，实盘下单请求一律被拒 |
 | P3-11 | **逐笔确认模式**：每笔交易推送到 Telegram / 控制台，人工确认后才下单；新策略默认用这个模式 | P1 | 4h | 超时未确认的订单自动作废 |
-| P3-12 | 哈希链审计账本：每条决策 / 订单记录都带上前一条的哈希 | P2 | 3h | 篡改任意一条历史记录，校验命令能立刻发现 |
+| P3-12 | ✅ 哈希链审计账本：事件日志每条记录带上一条的哈希，数据库触发器禁止改删；`maq audit verify` 校验整条链，`maq audit head` 输出锚点，防止有人截掉末尾 | P2 | 3h | 篡改任意一条历史记录，校验命令能立刻发现 |
 
-**M3 验收**：风控包覆盖率 ≥ 95%；人为构造一个"LLM 要求 10 手、不设止损"的提案，被正确拒绝或截断。
+**M3 验收**：风控包覆盖率 ≥ 95%；人为构造一个"LLM 要求 10 手、不设止损"的提案，被正确拒绝或截断。——✅ 2026-11-03 达成：风控包覆盖率 99%；"10 手、不设止损"被拒绝，"10 手、有止损"被截到风险预算对应的 0.47 手（单元测试和端到端测试各一组）。
 
 ---
 

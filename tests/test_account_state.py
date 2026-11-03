@@ -1,4 +1,5 @@
 """Tests for account state tracking."""
+
 from __future__ import annotations
 
 from data.account_state import update_account_state

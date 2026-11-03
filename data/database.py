@@ -1,11 +1,13 @@
 """SQLite persistence for cycle outputs and analytics."""
+
 from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional
+from typing import Any
 
 
 def init_db(path: Path) -> None:
@@ -71,12 +73,12 @@ def init_db(path: Path) -> None:
         )
 
 
-def store_cycle(result: Dict[str, Any], path: Path) -> Optional[int]:
+def store_cycle(result: dict[str, Any], path: Path) -> int | None:
     init_db(path)
     cycle_payload = json.dumps(result)
     timestamp = result.get("snapshot_meta", {}).get("timestamp")
     if not timestamp:
-        timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        timestamp = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     symbol = result.get("snapshot_meta", {}).get("symbol")
     final_action = result.get("final_signal", {}).get("action")
 
@@ -111,7 +113,7 @@ def store_cycle(result: Dict[str, Any], path: Path) -> Optional[int]:
     return cycle_id
 
 
-def store_trades(trades: Iterable[Dict[str, Any]], path: Path) -> None:
+def store_trades(trades: Iterable[dict[str, Any]], path: Path) -> None:
     init_db(path)
     with sqlite3.connect(path) as conn:
         for trade in trades:
@@ -131,9 +133,9 @@ def store_trades(trades: Iterable[Dict[str, Any]], path: Path) -> None:
         conn.commit()
 
 
-def store_performance(metric_type: str, payload: Dict[str, Any], path: Path) -> None:
+def store_performance(metric_type: str, payload: dict[str, Any], path: Path) -> None:
     init_db(path)
-    timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    timestamp = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     with sqlite3.connect(path) as conn:
         conn.execute(
             """
@@ -145,9 +147,9 @@ def store_performance(metric_type: str, payload: Dict[str, Any], path: Path) -> 
         conn.commit()
 
 
-def store_deepseek_aux(task_type: str, payload: Dict[str, Any], path: Path) -> None:
+def store_deepseek_aux(task_type: str, payload: dict[str, Any], path: Path) -> None:
     init_db(path)
-    timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    timestamp = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     with sqlite3.connect(path) as conn:
         conn.execute(
             """

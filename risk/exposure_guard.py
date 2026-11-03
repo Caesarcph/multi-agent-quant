@@ -1,15 +1,16 @@
 """Exposure and portfolio guards."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 
 def check_exposure_limits(
-    signal: Dict[str, Any],
-    positions: List[Dict[str, Any]],
-    config: Dict[str, Any],
-) -> List[str]:
-    notes: List[str] = []
+    signal: dict[str, Any],
+    positions: list[dict[str, Any]],
+    config: dict[str, Any],
+) -> list[str]:
+    notes: list[str] = []
     action = signal.get("action")
     if action not in {"BUY", "SELL"}:
         return notes
@@ -27,16 +28,14 @@ def check_exposure_limits(
 
     max_same_direction = config.get("max_same_direction")
     if max_same_direction is not None:
-        direction_positions = [
-            pos for pos in positions if _direction_from_position(pos) == action
-        ]
+        direction_positions = [pos for pos in positions if _direction_from_position(pos) == action]
         if len(direction_positions) >= int(max_same_direction):
             notes.append("max_same_direction_reached")
 
     return notes
 
 
-def _direction_from_position(position: Dict[str, Any]) -> str:
+def _direction_from_position(position: dict[str, Any]) -> str:
     pos_type = position.get("type")
     if pos_type is None:
         return "UNKNOWN"

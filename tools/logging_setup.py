@@ -1,18 +1,12 @@
-"""Logging setup."""
+"""Logging setup for the entry-point scripts (see maq_core.logging)."""
+
 from __future__ import annotations
 
-import logging
 from pathlib import Path
+
+from maq_core.logging import configure_logging
 
 
 def setup_logging(log_dir: Path, level: str = "INFO") -> None:
-    log_dir.mkdir(parents=True, exist_ok=True)
-    level_value = getattr(logging, level.upper(), logging.INFO)
-    logging.basicConfig(
-        level=level_value,
-        format="%(asctime)s %(levelname)s %(name)s - %(message)s",
-        handlers=[
-            logging.FileHandler(log_dir / "orchestrator.log", encoding="utf-8"),
-            logging.StreamHandler(),
-        ],
-    )
+    """Console + rotating ``orchestrator.log`` (text) and ``orchestrator.jsonl`` (JSON)."""
+    configure_logging(log_dir, level=level, name="orchestrator")

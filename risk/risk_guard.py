@@ -1,13 +1,16 @@
 """Risk guard stubs for signal validation."""
+
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
-def apply_basic_risk(signal: Dict[str, Any], risk_config: Dict[str, Any]) -> Tuple[Dict[str, Any], List[str]]:
+def apply_basic_risk(
+    signal: dict[str, Any], risk_config: dict[str, Any]
+) -> tuple[dict[str, Any], list[str]]:
     output = deepcopy(signal)
-    notes: List[str] = []
+    notes: list[str] = []
     trade_cfg = risk_config.get("trade_level", {})
 
     require_sl = bool(trade_cfg.get("require_stop_loss", False))

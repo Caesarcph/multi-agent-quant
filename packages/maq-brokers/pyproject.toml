@@ -1,0 +1,18 @@
+[project]
+name = "maq-brokers"
+version = "0.1.0"
+description = "Broker interface for multi-agent-quant, with a paper broker and a reusable contract test suite."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "maq-core",
+    "httpx>=0.28",
+]
+
+[tool.uv.sources]
+maq-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.11,<0.14"]
+build-backend = "uv_build"

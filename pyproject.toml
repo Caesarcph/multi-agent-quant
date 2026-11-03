@@ -1,0 +1,171 @@
+[project]
+name = "multi-agent-quant"
+version = "0.2.0"
+description = "Multi-agent LLM trading research system on MetaTrader 5: a council of LLM analysts, a deterministic risk layer, and MT5 execution."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    # The official MetaTrader5 package only ships Windows wheels. On Linux/macOS the
+    # project still installs; MT5-dependent code is exercised in tests via tests/fakes.
+    "MetaTrader5>=5.0.5509; sys_platform == 'win32'",
+    "numpy>=2.2",
+    "openai>=3.43,<4",
+    "jsonschema>=4.23",
+    "PyYAML>=6.0.2",
+    "maq-core",
+    "maq-cli",
+    "maq-brokers",
+    "maq-risk",
+    "maq-engine",
+    "maq-mt5-gateway",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "pytest-cov>=7.0",
+    "hypothesis>=6.170",
+    "ruff>=0.17",
+    "mypy>=2.4",
+    "types-PyYAML>=6.0",
+    "pytest-asyncio>=1.2",
+]
+
+[tool.uv]
+# The repository root is an application, not a library: it is not built or installed.
+# Scripts are run from the checkout, e.g. `uv run python scripts/run_loop.py`.
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*", "services/*"]
+
+[tool.uv.sources]
+maq-core = { workspace = true }
+maq-cli = { workspace = true }
+maq-brokers = { workspace = true }
+maq-risk = { workspace = true }
+maq-engine = { workspace = true }
+maq-mt5-gateway = { workspace = true }
+
+# --------------------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests", "packages", "services"]
+# Make the top-level packages (agents, data, execution, ...) importable in tests
+# without sys.path hacks, and import test modules by path to avoid basename clashes.
+pythonpath = ["."]
+addopts = ["--import-mode=importlib", "-ra", "--strict-markers"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "mt5_integration: needs a running MetaTrader 5 terminal (set MT5_INTEGRATION=1)",
+]
+
+# --------------------------------------------------------------------------- coverage
+[tool.coverage.run]
+branch = true
+source = [
+    # Workspace packages
+    "maq_core",
+    "maq_cli",
+    "maq_brokers",
+    "maq_risk",
+    "maq_engine",
+    "maq_mt5_gateway",
+    # Legacy top-level packages
+    "agents",
+    "data",
+    "deepseek",
+    "execution",
+    "fusion",
+    "orchestrator",
+    "plugins",
+    "risk",
+    "tools",
+    "validation",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+
+# --------------------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# Code samples in Markdown docs are illustrative and hand-aligned; leave them alone.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "C4",  # flake8-comprehensions
+    "RUF", # ruff-specific
+]
+ignore = [
+    "E501",   # line length is handled by the formatter; long strings and comments are fine
+    "SIM102", # nested ifs are sometimes clearer than one long condition
+    "SIM108", # same for if/else blocks vs. ternaries
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Entry-point scripts put the repository root on sys.path before importing project modules.
+"scripts/*.py" = ["E402"]
+"orchestrator/main.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "maq_core",
+    "maq_cli",
+    "maq_brokers",
+    "maq_risk",
+    "maq_engine",
+    "maq_mt5_gateway",
+    "agents",
+    "data",
+    "deepseek",
+    "execution",
+    "fusion",
+    "orchestrator",
+    "plugins",
+    "risk",
+    "scripts",
+    "tools",
+    "validation",
+    "tests",
+]
+
+# --------------------------------------------------------------------------- mypy
+# New packages are type-checked strictly; legacy top-level modules are not (yet).
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+files = [
+    "packages/maq-core/src",
+    "packages/maq-cli/src",
+    "packages/maq-brokers/src",
+    "packages/maq-risk/src",
+    "packages/maq-engine/src",
+    "services/mt5-gateway/src",
+]
+mypy_path = [
+    "packages/maq-core/src",
+    "packages/maq-cli/src",
+    "packages/maq-brokers/src",
+    "packages/maq-risk/src",
+    "packages/maq-engine/src",
+    "services/mt5-gateway/src",
+]

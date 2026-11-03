@@ -1,10 +1,13 @@
 """Trading Department Agent - Executes signals with MT5 tool access."""
+
 from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+import math
+from typing import Any
 
+from agents.json_utils import loads_strict
 from deepseek.client import DeepSeekClient
 from tools import mt5_connection
 from tools.tool_registry import call_tool, list_tools
@@ -72,7 +75,7 @@ class TradingAgent:
     def __init__(
         self,
         client: DeepSeekClient,
-        mt5_cfg: Dict[str, Any],
+        mt5_cfg: dict[str, Any],
         max_iterations: int = 6,
         max_tool_calls: int = 4,
         max_tool_result_chars: int = 4000,
@@ -82,14 +85,14 @@ class TradingAgent:
         self.max_iterations = max_iterations
         self.max_tool_calls = max(1, min(max_tool_calls, max_iterations - 1))
         self.max_tool_result_chars = max(500, int(max_tool_result_chars))
-        self.last_tool_calls: List[Dict[str, Any]] = []
+        self.last_tool_calls: list[dict[str, Any]] = []
 
     def process_signal(
         self,
-        research_signal: Dict[str, Any],
-        account_info: Optional[Dict[str, Any]] = None,
-        positions: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        research_signal: dict[str, Any],
+        account_info: dict[str, Any] | None = None,
+        positions: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         """
         Process a research signal and return execution decision.
 
@@ -103,15 +106,6 @@ class TradingAgent:
         """
         self.last_tool_calls = []
 
-        # Build initial context
-        context = {
-            "research_signal": research_signal,
-            "pre_loaded": {
-                "account_info": account_info,
-                "positions": positions,
-            },
-        }
-
         tools = list_tools()
         system_prompt = TRADING_SYSTEM_PROMPT.format(
             tools=json.dumps(tools, indent=2),
@@ -123,8 +117,8 @@ class TradingAgent:
 {json.dumps(research_signal, indent=2)}
 
 Pre-loaded context (may be None):
-- Account info: {json.dumps(account_info, indent=2) if account_info else 'Not provided, call get_account_info'}
-- Positions: {json.dumps(positions, indent=2) if positions else 'Not provided, call get_positions'}
+- Account info: {json.dumps(account_info, indent=2) if account_info else "Not provided, call get_account_info"}
+- Positions: {json.dumps(positions, indent=2) if positions else "Not provided, call get_positions"}
 
 Analyze this signal and decide whether to EXECUTE, MODIFY, or REJECT.
 Use tools as needed to gather missing information."""
@@ -139,13 +133,15 @@ Use tools as needed to gather missing information."""
         decision_requested = False
         for _ in range(self.max_iterations):
             if tool_calls >= self.max_tool_calls and not decision_requested:
-                messages.append({
-                    "role": "user",
-                    "content": (
-                        "Tool limit reached. Provide your FINAL decision now. "
-                        "Do NOT request more tools."
-                    ),
-                })
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "Tool limit reached. Provide your FINAL decision now. "
+                            "Do NOT request more tools."
+                        ),
+                    }
+                )
                 decision_requested = True
 
             response = self.client.complete_chat(messages)
@@ -154,10 +150,12 @@ Use tools as needed to gather missing information."""
             if parsed is None:
                 logger.warning("Trading agent returned unparseable response")
                 messages.append({"role": "assistant", "content": response})
-                messages.append({
-                    "role": "user",
-                    "content": "Invalid JSON. Please respond with valid JSON only.",
-                })
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": "Invalid JSON. Please respond with valid JSON only.",
+                    }
+                )
                 continue
 
             # Check if tool request
@@ -165,23 +163,29 @@ Use tools as needed to gather missing information."""
             if tool_request:
                 if tool_calls >= self.max_tool_calls:
                     messages.append({"role": "assistant", "content": response})
-                    messages.append({
-                        "role": "user",
-                        "content": "Tool limit reached. Provide your FINAL decision now.",
-                    })
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": "Tool limit reached. Provide your FINAL decision now.",
+                        }
+                    )
                     continue
                 tool_result = self._call_tool(tool_request)
-                self.last_tool_calls.append({
-                    "tool": tool_request.get("name"),
-                    "args": tool_request.get("args", {}),
-                    "result": tool_result,
-                })
+                self.last_tool_calls.append(
+                    {
+                        "tool": tool_request.get("name"),
+                        "args": tool_request.get("args", {}),
+                        "result": tool_result,
+                    }
+                )
                 tool_calls += 1
                 messages.append({"role": "assistant", "content": response})
-                messages.append({
-                    "role": "user",
-                    "content": f"Tool result:\n{json.dumps(tool_result, indent=2)}\n\nContinue analysis or provide final decision.",
-                })
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": f"Tool result:\n{json.dumps(tool_result, indent=2)}\n\nContinue analysis or provide final decision.",
+                    }
+                )
                 continue
 
             # Check if final decision
@@ -190,10 +194,12 @@ Use tools as needed to gather missing information."""
 
             # Unknown response
             messages.append({"role": "assistant", "content": response})
-            messages.append({
-                "role": "user",
-                "content": "Please provide either a tool_request or your final decision.",
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": "Please provide either a tool_request or your final decision.",
+                }
+            )
 
         # Max iterations reached
         return {
@@ -203,7 +209,7 @@ Use tools as needed to gather missing information."""
             "tool_calls": self.last_tool_calls,
         }
 
-    def _call_tool(self, tool_request: Dict[str, Any]) -> Any:
+    def _call_tool(self, tool_request: dict[str, Any]) -> Any:
         """Execute a tool call with MT5 connection."""
         tool_name = tool_request.get("name")
         tool_args = tool_request.get("args", {})
@@ -261,11 +267,11 @@ Use tools as needed to gather missing information."""
             "sample": payload[: self.max_tool_result_chars],
         }
 
-    def _safe_parse(self, output: str) -> Optional[Dict[str, Any]]:
+    def _safe_parse(self, output: str) -> dict[str, Any] | None:
         """Parse JSON from response."""
         try:
             # Try direct parse
-            return json.loads(output)
+            return loads_strict(output)
         except json.JSONDecodeError:
             pass
 
@@ -274,13 +280,13 @@ Use tools as needed to gather missing information."""
             start = output.find("{")
             end = output.rfind("}") + 1
             if start >= 0 and end > start:
-                return json.loads(output[start:end])
+                return loads_strict(output[start:end])
         except json.JSONDecodeError:
             pass
 
         return None
 
-    def _extract_tool_request(self, parsed: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _extract_tool_request(self, parsed: dict[str, Any]) -> dict[str, Any] | None:
         """Extract tool request from parsed response."""
         if "tool_request" in parsed and isinstance(parsed["tool_request"], dict):
             return parsed["tool_request"]
@@ -288,12 +294,18 @@ Use tools as needed to gather missing information."""
 
     def _validate_decision(
         self,
-        decision: Dict[str, Any],
-        original_signal: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """Validate and enrich the decision."""
+        decision: dict[str, Any],
+        original_signal: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Validate and enrich the decision.
+
+        The trading department sizes and executes the research decision; it may not
+        trade a different symbol or direction. Anything that is not a well-formed
+        order for the researched trade becomes a REJECT, with the reason recorded.
+        """
+        verdict = str(decision.get("decision", "REJECT")).strip().upper()
         result = {
-            "decision": decision.get("decision", "REJECT"),
+            "decision": verdict,
             "reason": decision.get("reason", "No reason provided"),
             "rationale": decision.get("rationale"),
             "order": decision.get("order"),
@@ -301,25 +313,50 @@ Use tools as needed to gather missing information."""
             "original_signal": original_signal,
         }
 
-        # Validate order if EXECUTE
-        if result["decision"] == "EXECUTE" and result["order"]:
-            order = result["order"]
-            required = ["symbol", "action", "volume"]
-            missing = [f for f in required if f not in order]
-            if missing:
-                result["decision"] = "REJECT"
-                result["reason"] = f"Order missing required fields: {missing}"
-                result["order"] = None
+        def reject(reason: str) -> dict[str, Any]:
+            logger.warning("Trading agent decision rejected: %s", reason)
+            result.update(decision="REJECT", reason=reason, order=None)
+            return result
+
+        if verdict not in {"EXECUTE", "MODIFY", "REJECT"}:
+            return reject(f"Unknown decision: {decision.get('decision')!r}")
+        if verdict == "REJECT":
+            result["order"] = None
+            return result
+
+        order = result["order"]
+        if not isinstance(order, dict):
+            return reject(f"{verdict} without an order")
+        missing = [field for field in ("symbol", "action", "volume") if field not in order]
+        if missing:
+            return reject(f"Order missing required fields: {missing}")
+
+        try:
+            volume = float(order["volume"])
+        except (TypeError, ValueError):
+            volume = 0.0
+        if not math.isfinite(volume) or volume <= 0.0:
+            return reject(f"Order volume must be positive, got {order['volume']!r}")
+
+        expected_symbol = str(original_signal.get("symbol") or "").upper()
+        expected_action = str(original_signal.get("action") or "").upper()
+        symbol = str(order["symbol"]).upper()
+        action = str(order["action"]).upper()
+        if expected_symbol and symbol != expected_symbol:
+            return reject(f"Order symbol {symbol} differs from research symbol {expected_symbol}")
+        if expected_action and action != expected_action:
+            return reject(f"Order action {action} differs from research action {expected_action}")
 
         return result
 
 
 def create_trading_agent(
     config_dir,
-    mt5_cfg: Optional[Dict[str, Any]] = None,
-) -> Optional[TradingAgent]:
+    mt5_cfg: dict[str, Any] | None = None,
+) -> TradingAgent | None:
     """Factory to create trading agent from config."""
     from pathlib import Path
+
     from deepseek.client import load_deepseek_config
 
     config_dir = Path(config_dir)
@@ -331,6 +368,7 @@ def create_trading_agent(
 
     if mt5_cfg is None:
         from tools.config_loader import load_yaml
+
         tool_cfg = load_yaml(config_dir / "tool_config.yaml")
         mt5_cfg = tool_cfg.get("mt5", {})
 

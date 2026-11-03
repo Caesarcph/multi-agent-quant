@@ -1,4 +1,5 @@
 """Update dynamic weights based on recent signal outcomes."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,7 +9,6 @@ from pathlib import Path
 from data.reporting import load_cycles
 from fusion.dynamic_weighting import update_dynamic_weights
 from tools.config_loader import load_yaml
-
 
 repo_root = Path(__file__).resolve().parents[1]
 

@@ -1,30 +1,49 @@
 """Tool registry for agent tool calls."""
+
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from data.correlation_builder import correlations_from_rates
 from tools import mt5_tools
 
-
 ToolFunc = Callable[..., Any]
 
 
-def list_tools() -> List[Dict[str, Any]]:
+def list_tools() -> list[dict[str, Any]]:
     return [
         {"name": "get_symbols", "description": "List all available symbols."},
-        {"name": "get_symbol_info", "description": "Fetch symbol contract specs (volume_min, volume_step, point, digits, margin_required)."},
-        {"name": "get_symbol_tick", "description": "Fetch latest tick for a symbol (bid, ask, last)."},
+        {
+            "name": "get_symbol_info",
+            "description": "Fetch symbol contract specs (volume_min, volume_step, point, digits, margin_required).",
+        },
+        {
+            "name": "get_symbol_tick",
+            "description": "Fetch latest tick for a symbol (bid, ask, last).",
+        },
         {"name": "get_rates", "description": "Fetch OHLCV rates."},
         {"name": "get_ticks", "description": "Fetch tick data."},
-        {"name": "get_positions", "description": "List open positions (ticket, symbol, volume, profit, sl, tp)."},
+        {
+            "name": "get_positions",
+            "description": "List open positions (ticket, symbol, volume, profit, sl, tp).",
+        },
         {"name": "get_orders", "description": "List pending orders."},
-        {"name": "get_account_info", "description": "Fetch account info (balance, equity, free_margin, margin_level)."},
+        {
+            "name": "get_account_info",
+            "description": "Fetch account info (balance, equity, free_margin, margin_level).",
+        },
         {"name": "calculate_indicator", "description": "Compute indicator from rates."},
         {"name": "calculate_correlation", "description": "Compute cross-symbol correlation."},
-        {"name": "calculate_margin", "description": "Calculate margin required for a trade. Args: symbol, volume, action (BUY/SELL)."},
-        {"name": "calculate_lot_size", "description": "Calculate lot size from risk. Args: symbol, risk_amount, stop_loss_pips."},
+        {
+            "name": "calculate_margin",
+            "description": "Calculate margin required for a trade. Args: symbol, volume, action (BUY/SELL).",
+        },
+        {
+            "name": "calculate_lot_size",
+            "description": "Calculate lot size from risk. Args: symbol, risk_amount, stop_loss_pips.",
+        },
     ]
 
 
@@ -35,7 +54,7 @@ def call_tool(name: str, **kwargs: Any) -> Any:
     return registry[name](**kwargs)
 
 
-def _registry() -> Dict[str, ToolFunc]:
+def _registry() -> dict[str, ToolFunc]:
     return {
         "get_symbols": _get_symbols,
         "get_symbol_info": _get_symbol_info,
@@ -52,15 +71,15 @@ def _registry() -> Dict[str, ToolFunc]:
     }
 
 
-def _get_symbols() -> List[Dict[str, Any]]:
+def _get_symbols() -> list[dict[str, Any]]:
     return mt5_tools.get_symbols()
 
 
-def _get_symbol_info(symbol: str) -> Dict[str, Any]:
+def _get_symbol_info(symbol: str) -> dict[str, Any]:
     return mt5_tools.get_symbol_info(symbol)
 
 
-def _get_symbol_tick(symbol: str) -> Dict[str, Any]:
+def _get_symbol_tick(symbol: str) -> dict[str, Any]:
     return mt5_tools.get_symbol_tick(symbol)
 
 
@@ -69,30 +88,30 @@ def _get_rates(
     timeframe: str,
     count: int = 100,
     start_pos: int = 0,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     return mt5_tools.get_rates(symbol, timeframe, count=count, start_pos=start_pos)
 
 
 def _get_ticks(
     symbol: str,
     count: int = 100,
-    from_datetime: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    from_datetime: str | None = None,
+) -> list[dict[str, Any]]:
     dt = None
     if from_datetime:
         dt = datetime.fromisoformat(str(from_datetime).replace("Z", "+00:00"))
     return mt5_tools.get_ticks(symbol, count=count, from_datetime=dt)
 
 
-def _get_positions() -> List[Dict[str, Any]]:
+def _get_positions() -> list[dict[str, Any]]:
     return mt5_tools.get_positions()
 
 
-def _get_orders() -> List[Dict[str, Any]]:
+def _get_orders() -> list[dict[str, Any]]:
     return mt5_tools.get_orders()
 
 
-def _get_account_info() -> Dict[str, Any]:
+def _get_account_info() -> dict[str, Any]:
     return mt5_tools.get_account_info()
 
 
@@ -108,14 +127,14 @@ def _calculate_indicator(
 
 
 def _calculate_correlation(
-    symbols: List[str],
+    symbols: list[str],
     timeframe: str,
     bars: int,
-) -> Dict[str, Dict[str, float]]:
+) -> dict[str, dict[str, float]]:
     return correlations_from_rates(symbols, timeframe, bars)
 
 
-def _calculate_margin(symbol: str, volume: float, action: str = "BUY") -> Dict[str, Any]:
+def _calculate_margin(symbol: str, volume: float, action: str = "BUY") -> dict[str, Any]:
     """Calculate margin required for a potential trade."""
     import MetaTrader5 as mt5
 
@@ -146,7 +165,7 @@ def _calculate_lot_size(
     symbol: str,
     risk_amount: float,
     stop_loss_pips: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Calculate lot size based on risk amount and stop loss distance."""
     info = mt5_tools.get_symbol_info(symbol)
     if not info or "error" in info:

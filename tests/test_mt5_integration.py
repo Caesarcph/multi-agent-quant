@@ -2,21 +2,18 @@
 
 Enable with MT5_INTEGRATION=1.
 """
+
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 import pytest
 
-repo_root = Path(__file__).resolve().parents[1]
-if str(repo_root) not in sys.path:
-    sys.path.insert(0, str(repo_root))
-
-from tools.config_loader import load_yaml
 from tools import mt5_connection, mt5_tools
+from tools.config_loader import load_yaml
 
+repo_root = Path(__file__).resolve().parents[1]
 
 pytestmark = pytest.mark.skipif(
     os.getenv("MT5_INTEGRATION") != "1",

@@ -1,8 +1,10 @@
 """JSON parsing utilities for model output."""
+
 from __future__ import annotations
 
 import json
 import re
+from typing import Any
 
 
 def _find_json_slice(text: str) -> str:
@@ -20,11 +22,11 @@ def _find_json_slice(text: str) -> str:
                 escape = False
             elif char == "\\":
                 escape = True
-            elif char == "\"":
+            elif char == '"':
                 in_string = False
             continue
 
-        if char == "\"":
+        if char == '"':
             in_string = True
             continue
         if char == "{":
@@ -63,11 +65,11 @@ def _strip_non_ascii_outside_strings(text: str) -> str:
                 escape = False
             elif char == "\\":
                 escape = True
-            elif char == "\"":
+            elif char == '"':
                 in_string = False
             continue
 
-        if char == "\"":
+        if char == '"':
             in_string = True
             output.append(char)
             continue
@@ -78,14 +80,25 @@ def _strip_non_ascii_outside_strings(text: str) -> str:
     return "".join(output)
 
 
+def _reject_constant(name: str) -> None:
+    # json.loads accepts NaN/Infinity by default. They slip past range checks
+    # (every comparison with NaN is false), so treat them as missing values.
+    return None
+
+
+def loads_strict(text: str) -> Any:
+    """json.loads, but NaN / Infinity / -Infinity become None."""
+    return json.loads(text, parse_constant=_reject_constant)
+
+
 def extract_json_object(text: str) -> dict:
     raw = _find_json_slice(text)
     try:
-        return json.loads(raw)
+        return loads_strict(raw)
     except json.JSONDecodeError:
         normalized = _normalize_json_text(raw)
         try:
-            return json.loads(normalized)
+            return loads_strict(normalized)
         except json.JSONDecodeError as exc:
             snippet = normalized[:300].replace("\n", "\\n")
             raise ValueError(f"Failed to parse JSON output. Snippet: {snippet}") from exc

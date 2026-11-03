@@ -1,4 +1,5 @@
 """Tests for account-level guards."""
+
 from __future__ import annotations
 
 from risk.account_guard import apply_account_limits

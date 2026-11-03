@@ -1,0 +1,17 @@
+[project]
+name = "maq-risk"
+version = "0.1.0"
+description = "Deterministic risk kernel for multi-agent-quant: pre-trade checks, sizing, circuit breakers, kill switch."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "maq-core",
+]
+
+[tool.uv.sources]
+maq-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.11,<0.14"]
+build-backend = "uv_build"

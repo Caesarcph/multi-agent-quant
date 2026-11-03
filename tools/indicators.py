@@ -1,7 +1,9 @@
 """Simple technical indicator helpers."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Optional
+from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 
@@ -10,7 +12,7 @@ def _as_floats(values: Iterable[Any]) -> np.ndarray:
     return np.array([float(v) for v in values], dtype=float)
 
 
-def calculate_sma(values: Iterable[Any], period: int) -> Optional[float]:
+def calculate_sma(values: Iterable[Any], period: int) -> float | None:
     if period <= 0:
         return None
     series = _as_floats(values)
@@ -19,7 +21,7 @@ def calculate_sma(values: Iterable[Any], period: int) -> Optional[float]:
     return float(series[-period:].mean())
 
 
-def calculate_rsi(values: Iterable[Any], period: int) -> Optional[float]:
+def calculate_rsi(values: Iterable[Any], period: int) -> float | None:
     if period <= 0:
         return None
     series = _as_floats(values)
@@ -43,7 +45,7 @@ def calculate_atr(
     lows: Iterable[Any],
     closes: Iterable[Any],
     period: int,
-) -> Optional[float]:
+) -> float | None:
     if period <= 0:
         return None
     high_series = _as_floats(highs)
@@ -68,7 +70,7 @@ def calculate_bollinger(
     values: Iterable[Any],
     period: int,
     stddev: float = 2.0,
-) -> Optional[Dict[str, float]]:
+) -> dict[str, float] | None:
     if period <= 0:
         return None
     series = _as_floats(values)
@@ -86,7 +88,7 @@ def calculate_bollinger_width(
     values: Iterable[Any],
     period: int,
     stddev: float = 2.0,
-) -> Optional[float]:
+) -> float | None:
     bands = calculate_bollinger(values, period, stddev)
     if not bands:
         return None
@@ -101,7 +103,7 @@ def calculate_adx(
     lows: Iterable[Any],
     closes: Iterable[Any],
     period: int,
-) -> Optional[float]:
+) -> float | None:
     if period <= 0:
         return None
     high_series = _as_floats(highs)
@@ -161,9 +163,9 @@ def calculate_adx(
 
 def calculate_indicator(
     indicator: str,
-    rates: List[Dict[str, Any]],
+    rates: list[dict[str, Any]],
     **kwargs: Any,
-) -> Optional[Any]:
+) -> Any | None:
     indicator = indicator.lower()
     closes = [rate.get("close") for rate in rates if rate.get("close") is not None]
     if indicator == "sma":
@@ -194,18 +196,18 @@ def calculate_indicator(
 
 
 def compute_indicators(
-    rates: List[Dict[str, Any]],
-    config: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    rates: list[dict[str, Any]],
+    config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     config = config or {}
     closes = [rate.get("close") for rate in rates if rate.get("close") is not None]
     highs = [rate.get("high") for rate in rates if rate.get("high") is not None]
     lows = [rate.get("low") for rate in rates if rate.get("low") is not None]
 
-    indicators: Dict[str, Any] = {}
+    indicators: dict[str, Any] = {}
     sma_periods = config.get("sma_periods") or []
     if sma_periods:
-        sma_values: Dict[str, float] = {}
+        sma_values: dict[str, float] = {}
         for period in sma_periods:
             value = calculate_sma(closes, int(period))
             if value is not None:

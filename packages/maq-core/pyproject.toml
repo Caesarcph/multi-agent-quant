@@ -1,0 +1,16 @@
+[project]
+name = "maq-core"
+version = "0.2.0"
+description = "Shared foundations for multi-agent-quant: domain types, events, clock, typed configuration, logging."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.12",
+    "PyYAML>=6.0.2",
+    "structlog>=25.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.14"]
+build-backend = "uv_build"

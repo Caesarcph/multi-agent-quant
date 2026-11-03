@@ -1,17 +1,19 @@
 """Fusion engine with regime agreement and score thresholds."""
+
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Iterable
+from typing import Any
 
 from fusion.dynamic_weighting import load_dynamic_weights
 
 ACTION_SCORE = {"BUY": 1.0, "HOLD": 0.0, "SELL": -1.0}
 
 
-def decision_signal(fused: Dict[str, Any]) -> Dict[str, Any]:
+def decision_signal(fused: dict[str, Any]) -> dict[str, Any]:
     """Return the signal that risk checks and the trading department should act on.
 
     ``representative_signal`` is one model's raw output, picked for its SL/TP and
@@ -39,7 +41,7 @@ def _majority(items: list[str]) -> tuple[str | None, float]:
     return winner, count / len(items)
 
 
-def fuse_signals(signals: Iterable[Dict[str, Any]], config: Dict[str, Any]) -> Dict[str, Any]:
+def fuse_signals(signals: Iterable[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
     signal_list = list(signals)
     if not signal_list:
         raise ValueError("No signals provided for fusion.")
@@ -104,7 +106,7 @@ def fuse_signals(signals: Iterable[Dict[str, Any]], config: Dict[str, Any]) -> D
 
     agreement_ratio = scores.get(action, 0.0) / total_weight if total_weight else 0.0
 
-    def pick_representative(chosen_action: str) -> Dict[str, Any]:
+    def pick_representative(chosen_action: str) -> dict[str, Any]:
         candidates = [s for s in signal_list if s.get("action") == chosen_action]
         if not candidates:
             candidates = signal_list
@@ -113,7 +115,7 @@ def fuse_signals(signals: Iterable[Dict[str, Any]], config: Dict[str, Any]) -> D
     representative = pick_representative(action)
 
     minority_cfg = config.get("minority_logging", {})
-    minority_signals: list[Dict[str, Any]] = []
+    minority_signals: list[dict[str, Any]] = []
     if minority_cfg.get("enabled", False):
         minority_signals = [signal for signal in signal_list if signal.get("action") != action]
 

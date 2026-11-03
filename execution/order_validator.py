@@ -1,11 +1,12 @@
 """Order validation for execution."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 
-def validate_signal_for_execution(signal: Dict[str, Any]) -> List[str]:
-    errors: List[str] = []
+def validate_signal_for_execution(signal: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
 
     action = signal.get("action")
     if action not in {"BUY", "SELL", "HOLD"}:

@@ -1,4 +1,5 @@
 """Run a single MT5 -> LLM -> fusion cycle."""
+
 from __future__ import annotations
 
 import argparse

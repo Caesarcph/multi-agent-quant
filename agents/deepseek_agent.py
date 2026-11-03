@@ -1,9 +1,10 @@
 """DeepSeek agent wrapper using the OpenAI client."""
+
 from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict
+from typing import Any
 
 from openai import OpenAI
 
@@ -18,7 +19,7 @@ class DeepSeekAgent(BaseAgent):
     def __init__(
         self,
         config: AgentConfig,
-        schema: Dict[str, Any],
+        schema: dict[str, Any],
         system_prompt: str,
         base_url: str,
         api_key_env: str,
@@ -34,8 +35,8 @@ class DeepSeekAgent(BaseAgent):
         repair_max_tokens: int = 2048,
         repair_thinking: bool = False,
         repair_stream: bool = False,
-        tool_config: Dict[str, Any] | None = None,
-        mt5_config: Dict[str, Any] | None = None,
+        tool_config: dict[str, Any] | None = None,
+        mt5_config: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(config, schema, system_prompt)
         api_key = os.getenv(api_key_env)
@@ -121,7 +122,7 @@ class DeepSeekAgent(BaseAgent):
             return self._collect_stream(response)
         return (response.choices[0].message.content or "").strip()
 
-    def generate_signal(self, snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_signal(self, snapshot: dict[str, Any]) -> dict[str, Any]:
         prompt = build_prompt(snapshot, self.schema)
         tool_cfg = self.tool_config.get("tool_calls", {})
 

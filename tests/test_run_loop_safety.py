@@ -1,4 +1,5 @@
 """Safety behaviour of scripts/run_loop.py: dry run by default and risk-based sizing input."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -32,7 +33,13 @@ def captured(run_loop, monkeypatch):
 
 DECISION = {
     "decision": "EXECUTE",
-    "order": {"symbol": "EURUSD", "action": "BUY", "volume": 5.0, "sl_price": 1.08, "tp_price": 1.10},
+    "order": {
+        "symbol": "EURUSD",
+        "action": "BUY",
+        "volume": 5.0,
+        "sl_price": 1.08,
+        "tp_price": 1.10,
+    },
 }
 
 
@@ -82,8 +89,8 @@ def test_skip_decision_never_executes(run_loop, captured):
     ("signal_risk", "per_trade", "expected"),
     [
         ({"risk_fraction_of_initial": 0.005}, 0.01, 0.005),  # throttled by guards -> keep
-        ({"risk_fraction_of_initial": 0.5}, 0.01, 0.01),     # LLM asks for 50% -> capped
-        ({}, 0.01, 0.01),                                     # missing -> per-trade budget
+        ({"risk_fraction_of_initial": 0.5}, 0.01, 0.01),  # LLM asks for 50% -> capped
+        ({}, 0.01, 0.01),  # missing -> per-trade budget
         ({"risk_fraction_of_initial": "bad"}, 0.01, 0.01),
         ({"risk_fraction_of_initial": 0.02}, None, 0.02),
     ],
@@ -99,3 +106,32 @@ def test_shipped_risk_config_enforces_guards():
     risk_cfg = yaml.safe_load((REPO_ROOT / "config" / "risk_config.yaml").read_text())
     assert risk_cfg["enforcement"]["enabled"] is True
     assert risk_cfg["account_level"]["max_drawdown"] == 0.5
+
+
+@pytest.fixture
+def quiet_main(run_loop, monkeypatch):
+    """Run main() without touching the repo's logs/ or creating any agent."""
+    monkeypatch.setattr(run_loop, "setup_logging", lambda *args, **kwargs: None)
+
+    def no_agent(*args, **kwargs):
+        raise AssertionError("main() must stop before creating the trading agent")
+
+    monkeypatch.setattr(run_loop, "create_trading_agent", no_agent)
+    return run_loop
+
+
+def test_live_is_refused_when_risk_enforcement_is_off(quiet_main, monkeypatch, capsys):
+    monkeypatch.setenv("MAQ_RISK__ENFORCEMENT__ENABLED", "false")
+    monkeypatch.setattr("sys.argv", ["run_loop.py", "--live"])
+    with pytest.raises(SystemExit) as caught:
+        quiet_main.main()
+    assert caught.value.code == 2
+
+
+def test_invalid_config_stops_before_anything_runs(quiet_main, monkeypatch, capsys):
+    monkeypatch.setenv("MAQ_RISK__TRADE_LEVEL__PER_TRADE_RISK", "0.2")  # above the hard cap
+    monkeypatch.setattr("sys.argv", ["run_loop.py"])
+    with pytest.raises(SystemExit) as caught:
+        quiet_main.main()
+    assert caught.value.code == 2
+    assert "risk_config.yaml: trade_level.per_trade_risk" in capsys.readouterr().err

@@ -1,33 +1,33 @@
 """Model performance evaluation from cycle signals."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from tools import mt5_connection, mt5_tools
 
 
 def evaluate_model_performance(
-    cycles: List[Dict[str, Any]],
-    mt5_cfg: Dict[str, Any],
-    config: Dict[str, Any],
-) -> Dict[str, Any]:
+    cycles: list[dict[str, Any]],
+    mt5_cfg: dict[str, Any],
+    config: dict[str, Any],
+) -> dict[str, Any]:
     timeframe = config.get("timeframe", "M1")
     default_ttl = int(config.get("default_ttl_minutes", 15))
     window_signals = int(config.get("window_signals", 500))
     min_samples = int(config.get("min_samples", 5))
 
     signals = _collect_signals(cycles, window_signals)
-    stats_by_model: Dict[str, Dict[str, Any]] = {}
-    stats_by_regime: Dict[str, Dict[str, Any]] = {}
-    stats_by_model_regime: Dict[str, Dict[str, Any]] = {}
+    stats_by_model: dict[str, dict[str, Any]] = {}
+    stats_by_regime: dict[str, dict[str, Any]] = {}
+    stats_by_model_regime: dict[str, dict[str, Any]] = {}
 
     terminal_path = mt5_cfg.get("terminal_path")
     if not terminal_path:
         raise RuntimeError("mt5.terminal_path is required for model performance")
 
-    symbol_cache: Dict[str, Dict[str, Any]] = {}
+    symbol_cache: dict[str, dict[str, Any]] = {}
 
     mt5_connection.initialize(
         terminal_path=terminal_path,
@@ -81,8 +81,8 @@ def evaluate_model_performance(
     finally:
         mt5_connection.shutdown()
 
-    def finalize(stats: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-        output: Dict[str, Dict[str, Any]] = {}
+    def finalize(stats: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+        output: dict[str, dict[str, Any]] = {}
         for key, values in stats.items():
             wins = values.get("wins", 0)
             losses = values.get("losses", 0)
@@ -113,7 +113,7 @@ def evaluate_model_performance(
 
 
 def _update_stats(
-    stats: Dict[str, Dict[str, Any]],
+    stats: dict[str, dict[str, Any]],
     key: str,
     pips_move: float,
     profit: float,
@@ -132,8 +132,8 @@ def _update_stats(
     entry["confidence_sum"] += float(confidence)
 
 
-def _collect_signals(cycles: List[Dict[str, Any]], window_signals: int) -> List[Dict[str, Any]]:
-    collected: List[Dict[str, Any]] = []
+def _collect_signals(cycles: list[dict[str, Any]], window_signals: int) -> list[dict[str, Any]]:
+    collected: list[dict[str, Any]] = []
     for cycle in cycles:
         collected.extend(cycle.get("signals", []) or [])
     if window_signals <= 0:
@@ -141,24 +141,24 @@ def _collect_signals(cycles: List[Dict[str, Any]], window_signals: int) -> List[
     return collected[-window_signals:]
 
 
-def _parse_time(value: Any) -> Optional[datetime]:
+def _parse_time(value: Any) -> datetime | None:
     if isinstance(value, datetime):
-        return value.astimezone(timezone.utc)
+        return value.astimezone(UTC)
     if not value:
         return None
     try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(timezone.utc)
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(UTC)
     except ValueError:
         return None
 
 
-def _pip_size(symbol_info: Dict[str, Any]) -> float:
+def _pip_size(symbol_info: dict[str, Any]) -> float:
     digits = int(symbol_info.get("digits", 5))
     point = float(symbol_info.get("point", 0.00001))
     return point * 10 if digits in (3, 5) else point
 
 
-def _pip_value(symbol_info: Dict[str, Any]) -> float:
+def _pip_value(symbol_info: dict[str, Any]) -> float:
     tick_size = float(symbol_info.get("trade_tick_size", 0.0))
     tick_value = float(symbol_info.get("trade_tick_value", 0.0))
     pip_size = _pip_size(symbol_info)

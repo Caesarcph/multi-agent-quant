@@ -1,9 +1,11 @@
 """MT5 order execution helpers."""
+
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import MetaTrader5 as mt5
 
@@ -16,11 +18,11 @@ from tools import mt5_connection, mt5_tools
 @dataclass
 class ExecutionResult:
     status: str
-    order_request: Optional[Dict[str, Any]] = None
-    order_response: Optional[Dict[str, Any]] = None
-    management: Optional[List[Dict[str, Any]]] = None
-    errors: Optional[list[str]] = None
-    notes: Optional[list[str]] = None
+    order_request: dict[str, Any] | None = None
+    order_response: dict[str, Any] | None = None
+    management: list[dict[str, Any]] | None = None
+    errors: list[str] | None = None
+    notes: list[str] | None = None
 
 
 def _pip_size(point: float, digits: int) -> float:
@@ -29,27 +31,38 @@ def _pip_size(point: float, digits: int) -> float:
     return point
 
 
-def _clamp_volume(volume: float, symbol_info: Dict[str, Any]) -> float:
+def _floor_to_step(volume: float, step: float) -> float:
+    # The epsilon keeps exact multiples (0.3 / 0.1 = 2.9999999999999996) on their step.
+    return math.floor(volume / step + 1e-9) * step
+
+
+def _clamp_volume(volume: float, symbol_info: dict[str, Any]) -> float:
+    """Clamp to the symbol's [volume_min, volume_max] on its volume_step grid.
+
+    Rounds *down* to the grid so a risk-sized volume never grows past its budget
+    (or past volume_max when that is not on the grid). volume_min still wins: a
+    position can never be smaller than the broker's minimum lot.
+    """
     min_vol = float(symbol_info.get("volume_min", 0.0))
     max_vol = float(symbol_info.get("volume_max", 0.0))
     step = float(symbol_info.get("volume_step", 0.0))
 
-    volume = max(min_vol, volume)
-    if max_vol > 0:
-        volume = min(max_vol, volume)
     if step > 0:
-        volume = round(volume / step) * step
-        volume = max(min_vol, volume)
-    return float(f"{volume:.4f}")
+        volume = _floor_to_step(volume, step)
+    if max_vol > 0:
+        upper = _floor_to_step(max_vol, step) if step > 0 else max_vol
+        volume = min(volume, upper if upper >= min_vol else max_vol)
+    volume = max(min_vol, volume)
+    return round(volume, 8)
 
 
-def _current_price(action: str, tick: Dict[str, Any]) -> float:
+def _current_price(action: str, tick: dict[str, Any]) -> float:
     if action == "BUY":
         return float(tick.get("ask"))
     return float(tick.get("bid"))
 
 
-def _direction_from_position(position: Dict[str, Any]) -> str:
+def _direction_from_position(position: dict[str, Any]) -> str:
     pos_type = position.get("type")
     if pos_type is None:
         return "UNKNOWN"
@@ -57,11 +70,11 @@ def _direction_from_position(position: Dict[str, Any]) -> str:
 
 
 def _reference_price(
-    position: Dict[str, Any],
+    position: dict[str, Any],
     action: str,
-    tick: Dict[str, Any],
-    config: Dict[str, Any],
-) -> Optional[float]:
+    tick: dict[str, Any],
+    config: dict[str, Any],
+) -> float | None:
     reference = str(config.get("sl_tp_reference", "current")).lower()
     if reference == "entry":
         price = position.get("price_open")
@@ -74,13 +87,13 @@ def _reference_price(
 
 
 def _build_sltp_request(
-    position: Dict[str, Any],
+    position: dict[str, Any],
     action: str,
-    symbol_info: Dict[str, Any],
-    tick: Dict[str, Any],
-    risk: Dict[str, Any],
-    config: Dict[str, Any],
-) -> Optional[Dict[str, Any]]:
+    symbol_info: dict[str, Any],
+    tick: dict[str, Any],
+    risk: dict[str, Any],
+    config: dict[str, Any],
+) -> dict[str, Any] | None:
     sl_pips = float(risk.get("stop_loss_pips", 0.0))
     tp_pips = float(risk.get("take_profit_pips", 0.0))
     if sl_pips <= 0.0 or tp_pips <= 0.0:
@@ -112,11 +125,11 @@ def _build_sltp_request(
 
 
 def _build_close_request(
-    position: Dict[str, Any],
-    symbol_info: Dict[str, Any],
-    tick: Dict[str, Any],
-    config: Dict[str, Any],
-) -> Optional[Dict[str, Any]]:
+    position: dict[str, Any],
+    symbol_info: dict[str, Any],
+    tick: dict[str, Any],
+    config: dict[str, Any],
+) -> dict[str, Any] | None:
     direction = _direction_from_position(position)
     if direction == "UNKNOWN":
         return None
@@ -143,12 +156,12 @@ def _build_close_request(
 
 def _record_management_result(
     action: str,
-    position: Dict[str, Any],
-    request: Dict[str, Any],
+    position: dict[str, Any],
+    request: dict[str, Any],
     status: str,
-    response: Optional[Dict[str, Any]] = None,
-    error: Optional[str] = None,
-) -> Dict[str, Any]:
+    response: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> dict[str, Any]:
     return {
         "action": action,
         "position": position.get("ticket"),
@@ -161,12 +174,12 @@ def _record_management_result(
 
 
 def manage_positions(
-    signal: Dict[str, Any],
-    positions: List[Dict[str, Any]],
-    symbol_info: Dict[str, Any],
-    tick: Dict[str, Any],
-    execution_cfg: Dict[str, Any],
-) -> tuple[List[Dict[str, Any]], List[str], bool]:
+    signal: dict[str, Any],
+    positions: list[dict[str, Any]],
+    symbol_info: dict[str, Any],
+    tick: dict[str, Any],
+    execution_cfg: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[str], bool]:
     config = execution_cfg.get("position_management", {})
     if not config.get("enabled", False):
         return [], [], False
@@ -177,14 +190,14 @@ def manage_positions(
     if not symbol_positions:
         return [], [], False
 
-    management: List[Dict[str, Any]] = []
-    notes: List[str] = []
+    management: list[dict[str, Any]] = []
+    notes: list[str] = []
     block_entry = False
     risk = signal.get("risk", {})
 
     def submit_request(
-        position: Dict[str, Any],
-        request: Optional[Dict[str, Any]],
+        position: dict[str, Any],
+        request: dict[str, Any] | None,
         action_label: str,
     ) -> None:
         if request is None:
@@ -192,9 +205,7 @@ def manage_positions(
             return
         if execution_cfg.get("dry_run", True):
             management.append(
-                _record_management_result(
-                    action_label, position, request, status="dry_run"
-                )
+                _record_management_result(action_label, position, request, status="dry_run")
             )
             return
         response = mt5.order_send(request)
@@ -228,12 +239,8 @@ def manage_positions(
                 submit_request(pos, request, "modify")
         return management, notes, True
 
-    same_dir = [
-        pos for pos in symbol_positions if _direction_from_position(pos) == action
-    ]
-    opp_dir = [
-        pos for pos in symbol_positions if _direction_from_position(pos) != action
-    ]
+    same_dir = [pos for pos in symbol_positions if _direction_from_position(pos) == action]
+    opp_dir = [pos for pos in symbol_positions if _direction_from_position(pos) != action]
 
     if same_dir and config.get("update_stops_on_same_direction", True):
         for pos in same_dir:
@@ -254,12 +261,12 @@ def manage_positions(
 
 
 def build_order_request(
-    signal: Dict[str, Any],
-    symbol_info: Dict[str, Any],
-    tick: Dict[str, Any],
-    config: Dict[str, Any],
+    signal: dict[str, Any],
+    symbol_info: dict[str, Any],
+    tick: dict[str, Any],
+    config: dict[str, Any],
     volume: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     action = signal["action"]
     entry = signal["entry"]
     risk = signal["risk"]
@@ -272,7 +279,7 @@ def build_order_request(
     if entry.get("type") == "limit":
         price = float(entry.get("price"))
 
-    def _coerce_price(value: Any) -> Optional[float]:
+    def _coerce_price(value: Any) -> float | None:
         try:
             if value is None:
                 return None
@@ -325,9 +332,38 @@ def build_order_request(
         "magic": int(config.get("magic", 0)),
         "comment": config.get("comment", "multi-agent-quant"),
         "type_time": mt5.ORDER_TIME_GTC,
-        "type_filling": int(symbol_info.get("filling_mode", mt5.ORDER_FILLING_IOC)),
+        "type_filling": _order_filling_types(symbol_info)[0],
     }
     return request
+
+
+def _order_filling_types(symbol_info: dict[str, Any]) -> list[int]:
+    """Valid ``ORDER_FILLING_*`` types for a symbol, most preferred first.
+
+    ``symbol_info.filling_mode`` is a *bitmask of allowed modes*
+    (SYMBOL_FILLING_FOK = 1, SYMBOL_FILLING_IOC = 2), while an order's
+    ``type_filling`` is an *enum* (ORDER_FILLING_FOK = 0, IOC = 1, RETURN = 2).
+    Passing the mask straight through sends the wrong mode (mask 1 -> IOC) or an
+    invalid one (mask 3), which the broker rejects with "Unsupported filling mode".
+    """
+    fok = int(getattr(mt5, "ORDER_FILLING_FOK", 0))
+    ioc = int(getattr(mt5, "ORDER_FILLING_IOC", 1))
+    ret = int(getattr(mt5, "ORDER_FILLING_RETURN", 2))
+    try:
+        flags = int(symbol_info.get("filling_mode") or 0)
+    except (TypeError, ValueError):
+        flags = 0
+
+    allowed: list[int] = []
+    if flags & int(getattr(mt5, "SYMBOL_FILLING_IOC", 2)):
+        allowed.append(ioc)
+    if flags & int(getattr(mt5, "SYMBOL_FILLING_FOK", 1)):
+        allowed.append(fok)
+    if not allowed:
+        # No immediate-execution flag: the symbol uses RETURN (exchange/request execution).
+        allowed.append(ret)
+    # Keep the remaining modes as a last resort for brokers that misreport the flags.
+    return allowed + [mode for mode in (ioc, fok, ret) if mode not in allowed]
 
 
 def _success_retcodes() -> set[int]:
@@ -349,62 +385,34 @@ def _is_filling_mode_error(response: Any) -> bool:
     return retcode == 10030 or "Unsupported filling mode" in comment
 
 
-def _filling_mode_candidates(symbol_info: Dict[str, Any]) -> list[int]:
-    candidates: list[int] = []
-    raw_mode = symbol_info.get("filling_mode")
-    if raw_mode is not None:
-        try:
-            mode = int(raw_mode)
-            if mode in (0, 1, 2):
-                candidates.append(mode)
-            else:
-                candidates.append(mode)
-        except (TypeError, ValueError):
-            pass
-    for mode in (
-        getattr(mt5, "ORDER_FILLING_FOK", 0),
-        getattr(mt5, "ORDER_FILLING_IOC", 1),
-        getattr(mt5, "ORDER_FILLING_RETURN", 2),
-    ):
-        candidates.append(int(mode))
-
-    seen: set[int] = set()
-    ordered: list[int] = []
-    for mode in candidates:
-        if mode in seen:
-            continue
-        seen.add(mode)
-        ordered.append(mode)
-    return ordered
-
-
 def _send_with_filling_fallback(
-    request: Dict[str, Any],
-    symbol_info: Dict[str, Any],
-) -> tuple[Any, Dict[str, Any], list[str]]:
+    request: dict[str, Any],
+    symbol_info: dict[str, Any],
+) -> tuple[Any, dict[str, Any], list[str]]:
     notes: list[str] = []
     response = mt5.order_send(request)
-    if response is not None and not _is_filling_mode_error(response):
+    # No answer (None) does not mean "not executed": the order may have gone
+    # through, so it is never resent. Only an explicit filling-mode rejection is.
+    if response is None or not _is_filling_mode_error(response):
         return response, request, notes
 
-    candidates = _filling_mode_candidates(symbol_info)
-    for mode in candidates:
+    for mode in _order_filling_types(symbol_info):
         if int(request.get("type_filling", mode)) == mode:
             continue
         retry_request = dict(request)
         retry_request["type_filling"] = mode
         notes.append(f"fill_mode_retry:{mode}")
         response = mt5.order_send(retry_request)
-        if response is not None and not _is_filling_mode_error(response):
+        if response is None or not _is_filling_mode_error(response):
             return response, retry_request, notes
     return response, request, notes
 
 
 def execute_signal(
-    signal: Dict[str, Any],
-    execution_cfg: Dict[str, Any],
-    mt5_cfg: Dict[str, Any],
-    positions: Optional[List[Dict[str, Any]]] = None,
+    signal: dict[str, Any],
+    execution_cfg: dict[str, Any],
+    mt5_cfg: dict[str, Any],
+    positions: list[dict[str, Any]] | None = None,
 ) -> ExecutionResult:
     errors = validate_signal_for_execution(signal)
     terminal_path = mt5_cfg.get("terminal_path")
@@ -433,7 +441,7 @@ def execute_signal(
         if positions is None:
             positions = mt5_tools.get_positions()
 
-        management_results: List[Dict[str, Any]] = []
+        management_results: list[dict[str, Any]] = []
         block_entry = False
         management_results, management_notes, block_entry = manage_positions(
             signal, positions, symbol_info, tick, execution_cfg
@@ -487,7 +495,7 @@ def execute_signal(
                     )
 
         volume = default_volume
-        if execution_cfg.get("use_signal_volume", True):
+        if execution_cfg.get("use_signal_volume", False):
             volume = float(signal.get("volume", 0.0))
             if volume <= 0.0:
                 return ExecutionResult(
@@ -522,9 +530,7 @@ def execute_signal(
                 notes=notes,
             )
 
-        response, final_request, retry_notes = _send_with_filling_fallback(
-            request, symbol_info
-        )
+        response, final_request, retry_notes = _send_with_filling_fallback(request, symbol_info)
         notes.extend(retry_notes)
         if response is None:
             code, message = mt5.last_error()
@@ -558,7 +564,61 @@ def execute_signal(
         mt5_connection.shutdown()
 
 
-def render_execution_result(result: ExecutionResult) -> Dict[str, Any]:
+def flatten_positions(
+    positions: list[dict[str, Any]],
+    execution_cfg: dict[str, Any],
+    *,
+    live: bool,
+) -> list[dict[str, Any]]:
+    """Close every position this system opened (same ``magic``), for the kill switch.
+
+    Positions with another magic number (opened by hand, other EAs) are left
+    alone; with ``magic: 0`` in the config every position is closed. Without
+    ``live`` the close requests are only recorded.
+    """
+    magic = int(execution_cfg.get("magic", 0))
+    results: list[dict[str, Any]] = []
+    for position in positions:
+        if magic and int(position.get("magic", 0)) != magic:
+            continue
+        symbol = str(position.get("symbol"))
+        try:
+            symbol_info = mt5_tools.get_symbol_info(symbol)
+            tick = mt5_tools.get_symbol_tick(symbol)
+        except RuntimeError as exc:
+            results.append(
+                _record_management_result("flatten", position, {}, status="error", error=str(exc))
+            )
+            continue
+        request = _build_close_request(position, symbol_info, tick, execution_cfg)
+        if request is None:
+            results.append(
+                _record_management_result(
+                    "flatten", position, {}, status="error", error="cannot build close request"
+                )
+            )
+            continue
+        request["type_filling"] = _order_filling_types(symbol_info)[0]
+        if not live:
+            results.append(_record_management_result("flatten", position, request, "dry_run"))
+            continue
+        response, sent, _ = _send_with_filling_fallback(request, symbol_info)
+        if response is None:
+            code, message = mt5.last_error()
+            results.append(
+                _record_management_result(
+                    "flatten", position, sent, "error", error=f"order_send_failed:{code}:{message}"
+                )
+            )
+            continue
+        status = "closed" if int(response.retcode) in _success_retcodes() else "rejected"
+        results.append(
+            _record_management_result("flatten", position, sent, status, response._asdict())
+        )
+    return results
+
+
+def render_execution_result(result: ExecutionResult) -> dict[str, Any]:
     return {
         "status": result.status,
         "order_request": result.order_request,
@@ -566,5 +626,5 @@ def render_execution_result(result: ExecutionResult) -> Dict[str, Any]:
         "management": result.management,
         "errors": result.errors,
         "notes": result.notes,
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     }

@@ -1,9 +1,11 @@
 """External data plugin interface and loader."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from importlib import import_module
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any
 
 
 class ExternalDataPlugin(ABC):
@@ -33,9 +35,11 @@ def _plugin_name(plugin: ExternalDataPlugin) -> str:
     return str(name)
 
 
-def load_plugins(plugin_specs: Iterable[str]) -> Tuple[List[ExternalDataPlugin], List[Dict[str, str]]]:
-    plugins: List[ExternalDataPlugin] = []
-    errors: List[Dict[str, str]] = []
+def load_plugins(
+    plugin_specs: Iterable[str],
+) -> tuple[list[ExternalDataPlugin], list[dict[str, str]]]:
+    plugins: list[ExternalDataPlugin] = []
+    errors: list[dict[str, str]] = []
     for spec in plugin_specs:
         spec = str(spec).strip()
         if not spec:
@@ -48,12 +52,12 @@ def load_plugins(plugin_specs: Iterable[str]) -> Tuple[List[ExternalDataPlugin],
             if not isinstance(plugin, ExternalDataPlugin):
                 raise TypeError("plugin_class_not_external_data_plugin")
             plugins.append(plugin)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             errors.append({"plugin": spec, "error": str(exc)})
     return plugins, errors
 
 
-def _extend_list(target: List[Any], payload: Any) -> None:
+def _extend_list(target: list[Any], payload: Any) -> None:
     if payload is None:
         return
     if isinstance(payload, list):
@@ -62,13 +66,13 @@ def _extend_list(target: List[Any], payload: Any) -> None:
     target.append(payload)
 
 
-def _limit_items(values: List[Any], max_items: Optional[int]) -> List[Any]:
+def _limit_items(values: list[Any], max_items: int | None) -> list[Any]:
     if max_items is None:
         return values
     return values[: int(max_items)]
 
 
-def collect_external_data(config: Dict[str, Any]) -> Tuple[Dict[str, Any], List[Dict[str, str]]]:
+def collect_external_data(config: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
     plugin_specs = config.get("plugins", []) or []
     plugins, errors = load_plugins(plugin_specs)
 
@@ -85,10 +89,10 @@ def collect_external_data(config: Dict[str, Any]) -> Tuple[Dict[str, Any], List[
     symbol = config.get("symbol")
     macro_series = config.get("macro_series")
 
-    economic_calendar: List[Any] = []
-    news: List[Any] = []
-    sentiment: List[Any] = []
-    macro: List[Any] = []
+    economic_calendar: list[Any] = []
+    news: list[Any] = []
+    sentiment: list[Any] = []
+    macro: list[Any] = []
 
     for plugin in plugins:
         name = _plugin_name(plugin)
@@ -105,10 +109,10 @@ def collect_external_data(config: Dict[str, Any]) -> Tuple[Dict[str, Any], List[
             if "macro" in include_set:
                 data = plugin.get_macro_series(series=macro_series)
                 _extend_list(macro, data)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             errors.append({"plugin": name, "error": str(exc)})
 
-    payload: Dict[str, Any] = {}
+    payload: dict[str, Any] = {}
     if "economic_calendar" in include_set:
         payload["economic_calendar"] = _limit_items(economic_calendar, max_items)
     if "news" in include_set:

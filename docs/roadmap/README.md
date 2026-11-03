@@ -1,7 +1,7 @@
 # 2026 大升级计划
 
 > 覆盖三个仓库：**multi-agent-quant**、**llm-rl-mt5-trading**、**llm-backtest-framework**
-> 编写日期：2026-11-03 ｜ 状态：草案，等你拍板第 0 阶段的几个决策
+> 编写日期：2026-11-03 ｜ 状态：执行中（ADR-0001～0004 已于 2026-11-03 拍板）
 
 ---
 
@@ -34,8 +34,25 @@
 | 2026-11-03 | 0 | 更新过时的 `AGENTS.md`、README 和运维文档里的实盘说明（P0-09）；测试从 31 个增加到 48 个，全部通过 | multi-agent-quant |
 | 2026-11-03 | 0 | 重写损坏的 `monitoring.py` 和告警测试，删除无法恢复的示例；修好依赖文件、异常装饰器 bug、pandas 3 兼容问题，补 LICENSE（P0-04～P0-07）。同一环境下测试从 496 通过 / 81 失败变成 600 通过 / 15 失败，剩余失败均为原有问题，已在迁移计划里逐条说明 | llm-rl-mt5-trading |
 | 2026-11-03 | 0 | README 不再宣称尚不存在的集成，加上 pre-alpha 标识；修好 `CONTRIBUTING.md`（P0-08） | llm-backtest-framework |
+| 2026-11-03 | 1 | **工程地基**：uv workspace + 锁文件；Ruff 接管 lint 和格式化；新包 strict mypy；GitHub Actions（Ubuntu + Windows）、Dependabot、pre-commit；requirements 改为从锁文件导出（P1-01～P1-05、P1-13） | multi-agent-quant |
+| 2026-11-03 | 1 | **maq-core**：7 个配置文件的严格校验、代码里的风险硬上限、`MAQ_*` 环境变量覆盖、`--live` 安全门槛；structlog 结构化日志（P1-07、P1-08） | multi-agent-quant |
+| 2026-11-03 | 1 | **maq 命令**：`maq doctor`、`maq config validate`、`maq config show`（P1-09） | multi-agent-quant |
+| 2026-11-03 | 1 | **测试基建与补测**：假 MT5 终端、假 OpenAI 兼容服务、Hypothesis；下单执行器、交易部、DeepSeek 客户端从 0% 覆盖到 74%～96%，测试 48 → 162 个（P1-10） | multi-agent-quant |
+| 2026-11-03 | 1 | **动手时修掉的真实 bug**：filling 模式位掩码误用（"Unsupported filling mode" 拒单的根源）；交易部能下研究部没让下的单；`NaN` 绕过范围检查；手数四舍五入超出风险预算；CLI 分析师临时文件泄漏（P1-14～P1-16） | multi-agent-quant |
+| 2026-11-03 | 1 | 6 篇 ADR：仓库结构、Agent 框架、控制台、MT5 部署 4 篇按建议方案拍板（补充：暂时不在 Windows 上跑），另 2 篇记录本轮已做的决定（P0-10） | multi-agent-quant |
+| 2026-11-03 | 2 | **领域模型与券商层**：`maq-core` 加上领域模型、事件注册表、时钟；新包 `maq-brokers`：统一的异步 `Broker` 接口、`PaperBroker`（滑点、手续费、隔夜利息、挂单、保证金、强平）、24 项契约测试（P1-06、P2-01、P2-04） | multi-agent-quant |
+| 2026-11-03 | 2 | **MT5 适配器与 Gateway**：`Mt5Broker`（单线程、幂等键写进 comment、`order_check` 先行、事件从成交记录推导）、`services/mt5-gateway`（FastAPI + token + 长轮询）、`Mt5GatewayBroker` 客户端。按拍板意见没上 Windows：写了一个独立的模拟交易服务器，契约测试在三条链路上全部通过（P2-02、P2-03 代码部分，ADR-0007） | multi-agent-quant |
+| 2026-11-03 | 3 | **风控内核** `maq-risk`：20 多道事前检查、仓位计算器、熔断器、急停、授权书；每项检查正反测试，3 条性质各跑 10 万个随机样例 0 反例，覆盖率 99%（P3-01～P3-05、P3-09、P3-10，ADR-0008） | multi-agent-quant |
+| 2026-11-03 | 3 | **事件日志与订单管理** `maq-engine`：SQLite 哈希链事件日志（`maq audit verify` 能发现任意一条被篡改）、先落盘再发送的订单管理器、对账、从提案到成交的执行流水线（P3-06、P3-12） | multi-agent-quant |
+| 2026-11-03 | 3 | **动手时修掉的真实 bug**：旧代码把日亏损限额（比例 0.03）和金额比较，亏 4 美分就停一天，入金还被算成当日盈利；`order_send` 没回应时会换个 filling 模式重发，可能下出两笔单。`maq kill-switch` 也接进了旧主循环 | multi-agent-quant |
 
-**阶段 0 还剩**：P0-01（打 `v0-legacy` 标签）、P0-10（四篇 ADR，需要你拍板）、P0-11（采集基线，需要在 Windows + MT5 上跑一周）、P0-12（确认 DeepSeek 端点，需要 API key）、P0-13（CLI 换成原生 Schema 参数，需要在装了三个 CLI 的机器上验证）。
+**阶段 0 还剩**：P0-01（打 `v0-legacy` 标签）、P0-11（采集基线，需要在 Windows + MT5 上跑一周，按拍板意见先缓一缓）、P0-12（确认 DeepSeek 端点，需要 API key）、P0-13（CLI 换成原生 Schema 参数，需要在装了三个 CLI 的机器上验证）。
+
+**阶段 1 还剩**：gitleaks 和 zizmor 接入 CI、文档站和 Docker（已推迟，见上表）。
+
+**阶段 2 还剩**：历史数据管道、`SnapshotBuilder` v2、指标统一、外部数据异步化（P2-05～P2-08），Linux 跑 MT5 的调研（P2-09）；Gateway 和客户端在真实终端上的验收等上了 Windows 再做。
+
+**阶段 3 还剩**：Telegram 急停和逐笔确认（P3-05、P3-11）、能力分级配置（P3-10）、分阶段放量和移动止损（P3-07、P3-08，迁移旧仓库的模块）；熔断器的数据来源要等阶段 4 的 Agent 层。新内核还没有接管旧主循环的下单路径，阶段 4 迁移时先并行对比两边的判定。
 
 ---
 
@@ -122,13 +139,14 @@ gantt
 ## 决策点
 
 第 0 阶段需要你拍板的事，每一项都会写成一篇 ADR（架构决策记录）放在 `docs/adr/`。
+前四项已于 2026-11-03 按推荐方案拍板，另外补充了一条：**暂时不在 Windows 上跑**，MT5 相关部分先用假终端开发和测试。
 
 | 编号 | 要决定什么 | 推荐 | 备选 | 什么时候定 |
 |---|---|---|---|---|
-| ADR-001 | 仓库结构 | **一个平台 + 一个引擎**：llm-rl-mt5-trading 拆分迁移后归档 | 保留三个仓库，抽一个共享的 core 包 | 第 1 周 |
-| ADR-002 | Agent 框架 | **PydanticAI 2 + 自研轻量编排** | LangGraph 1.2（想复用 TradingAgents 的图结构时选它） | 第 1 周 |
-| ADR-003 | 控制台技术栈 | **Next.js + shadcn/ui**，正式版出来之前先用 Streamlit 过渡 | NiceGUI（纯 Python） | 第 1 周，最晚第 8 周 |
-| ADR-004 | MT5 部署方式 | **Windows VPS 跑 Gateway**；开发和 CI 用 Wine 方案连模拟盘 | 全部跑在 Wine / Docker 里 | 第 1 周 |
+| ADR-001 | 仓库结构 | **一个平台 + 一个引擎**：llm-rl-mt5-trading 拆分迁移后归档 | 保留三个仓库，抽一个共享的 core 包 | ✅ 已定 |
+| ADR-002 | Agent 框架 | **PydanticAI 2 + 自研轻量编排** | LangGraph 1.2（想复用 TradingAgents 的图结构时选它） | ✅ 已定 |
+| ADR-003 | 控制台技术栈 | **Next.js + shadcn/ui**，正式版出来之前先用 Streamlit 过渡 | NiceGUI（纯 Python） | ✅ 已定 |
+| ADR-004 | MT5 部署方式 | **Windows VPS 跑 Gateway**；开发和 CI 用 Wine 方案连模拟盘 | 全部跑在 Wine / Docker 里 | ✅ 已定（暂不上 Windows） |
 | ADR-005 | 默认模型组合与 LLM 预算 | 你来定。建议先设每日上限（比如 5 美元），超了自动降级成只用快速档 | — | 第 5 周前 |
 | ADR-006 | 要不要接第二家券商 | 先不接，接口留好 | cTrader（外汇方向最好的替代）/ OANDA | 第 13 周以后 |
 

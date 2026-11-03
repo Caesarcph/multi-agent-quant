@@ -1,4 +1,5 @@
 """Tests for simple fusion logic."""
+
 from __future__ import annotations
 
 from fusion.simple_fusion import fuse_signals

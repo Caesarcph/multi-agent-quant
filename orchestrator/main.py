@@ -1,4 +1,5 @@
 """Orchestrator entrypoint and runtime wiring."""
+
 from __future__ import annotations
 
 import logging
@@ -10,9 +11,9 @@ if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
 from orchestrator.state import OrchestratorState
+from tools import mt5_connection, mt5_tools
 from tools.config_loader import load_yaml
 from tools.logging_setup import setup_logging
-from tools import mt5_connection, mt5_tools
 
 
 def main() -> None:

@@ -1,4 +1,5 @@
 """Generate model performance report from cycle logs."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,7 +9,6 @@ from pathlib import Path
 from data.reporting import load_cycles
 from tools.config_loader import load_yaml
 from validation.model_performance import evaluate_model_performance
-
 
 repo_root = Path(__file__).resolve().parents[1]
 
