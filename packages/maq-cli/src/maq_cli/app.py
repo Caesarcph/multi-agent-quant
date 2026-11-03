@@ -22,8 +22,12 @@ app = typer.Typer(
 config_app = typer.Typer(help="Validate and inspect config/*.yaml.", no_args_is_help=True)
 app.add_typer(config_app, name="config")
 
-console = Console()
-err_console = Console(stderr=True)
+
+def _console(stderr: bool = False) -> Console:
+    # Created per call so colour settings (NO_COLOR, FORCE_COLOR, TTY) are read at
+    # invocation time rather than frozen when the module is imported.
+    return Console(stderr=stderr)
+
 
 ConfigDirOption = Annotated[
     Path,
@@ -42,12 +46,13 @@ _ICON = {Status.OK: "✓", Status.WARN: "!", Status.FAIL: "✗"}
 @app.command()
 def version() -> None:
     """Print the version."""
-    console.print(f"maq {__version__}")
+    _console().print(f"maq {__version__}")
 
 
 @app.command()
 def doctor(config_dir: ConfigDirOption = Path("config")) -> None:
     """Check that this machine is ready to run the system."""
+    console = _console()
     results = run_checks(config_dir)
     table = Table(show_header=True, header_style="bold", box=None, pad_edge=False)
     table.add_column("")
@@ -70,6 +75,7 @@ def doctor(config_dir: ConfigDirOption = Path("config")) -> None:
 @config_app.command("validate")
 def config_validate(config_dir: ConfigDirOption = Path("config")) -> None:
     """Validate every config file and MAQ_* override; exit 1 on errors."""
+    console, err_console = _console(), _console(stderr=True)
     try:
         config = load_config(config_dir)
     except ConfigError as error:
@@ -93,10 +99,11 @@ def config_show(
     as_json: Annotated[bool, typer.Option("--json", help="Print JSON instead of YAML")] = False,
 ) -> None:
     """Print the effective configuration (defaults + files + MAQ_* overrides)."""
+    err_console = _console(stderr=True)
     try:
         config = load_config(config_dir)
     except ConfigError as error:
-        err_console.print(str(error))
+        err_console.print(str(error), markup=False, highlight=False)
         raise typer.Exit(code=1) from None
 
     data = config.model_dump(mode="json")
@@ -105,10 +112,11 @@ def config_show(
             err_console.print(f"Unknown section '{section}'. Choose from: {', '.join(data)}")
             raise typer.Exit(code=2)
         data = data[section]
+    # Plain text (no Rich markup or highlighting) so the output can be piped or saved.
     if as_json:
-        console.print_json(json.dumps(data))
+        typer.echo(json.dumps(data, indent=2, ensure_ascii=False))
     else:
-        console.print(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), end="")
+        typer.echo(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), nl=False)
 
 
 def main() -> None:

@@ -30,6 +30,9 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in list(os.environ):
         if name.startswith("MAQ_"):
             monkeypatch.delenv(name)
+    # Assertions compare plain text; CI sets FORCE_COLOR for readable logs.
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+    monkeypatch.setenv("NO_COLOR", "1")
 
 
 def by_name(results):
@@ -72,6 +75,16 @@ def test_config_show_applies_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     shown = yaml.safe_load(result.output)
     assert shown["trade_level"]["per_trade_risk"] == 0.005
     assert shown["enforcement"]["enabled"] is True
+
+
+def test_config_show_json_is_machine_readable() -> None:
+    import json
+
+    result = runner.invoke(app, ["config", "show", "tool", "--json", "-c", str(REPO_CONFIG)])
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["mt5"]["default_symbol"] == "EURUSD"
+    assert data["correlation"]["symbols"] == ["EURUSD", "GBPUSD", "USDJPY"]
 
 
 def test_config_show_unknown_section() -> None:
