@@ -1,0 +1,25 @@
+[project]
+name = "maq-mt5-gateway"
+version = "0.1.0"
+description = "A thin HTTP service in front of one MetaTrader 5 terminal, so the rest of multi-agent-quant can run anywhere."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "maq-core",
+    "maq-brokers",
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+    "MetaTrader5>=5.0.5509; sys_platform == 'win32'",
+]
+
+[project.scripts]
+maq-gateway = "maq_mt5_gateway.cli:main"
+
+[tool.uv.sources]
+maq-core = { workspace = true }
+maq-brokers = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.11,<0.14"]
+build-backend = "uv_build"

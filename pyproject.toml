@@ -18,6 +18,7 @@ dependencies = [
     "maq-brokers",
     "maq-risk",
     "maq-engine",
+    "maq-mt5-gateway",
 ]
 
 [dependency-groups]
@@ -37,7 +38,7 @@ dev = [
 package = false
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["packages/*", "services/*"]
 
 [tool.uv.sources]
 maq-core = { workspace = true }
@@ -45,11 +46,12 @@ maq-cli = { workspace = true }
 maq-brokers = { workspace = true }
 maq-risk = { workspace = true }
 maq-engine = { workspace = true }
+maq-mt5-gateway = { workspace = true }
 
 # --------------------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
 minversion = "9.0"
-testpaths = ["tests", "packages"]
+testpaths = ["tests", "packages", "services"]
 # Make the top-level packages (agents, data, execution, ...) importable in tests
 # without sys.path hacks, and import test modules by path to avoid basename clashes.
 pythonpath = ["."]
@@ -64,6 +66,14 @@ markers = [
 [tool.coverage.run]
 branch = true
 source = [
+    # Workspace packages
+    "maq_core",
+    "maq_cli",
+    "maq_brokers",
+    "maq_risk",
+    "maq_engine",
+    "maq_mt5_gateway",
+    # Legacy top-level packages
     "agents",
     "data",
     "deepseek",
@@ -122,6 +132,7 @@ known-first-party = [
     "maq_brokers",
     "maq_risk",
     "maq_engine",
+    "maq_mt5_gateway",
     "agents",
     "data",
     "deepseek",
@@ -148,6 +159,7 @@ files = [
     "packages/maq-brokers/src",
     "packages/maq-risk/src",
     "packages/maq-engine/src",
+    "services/mt5-gateway/src",
 ]
 mypy_path = [
     "packages/maq-core/src",
@@ -155,4 +167,5 @@ mypy_path = [
     "packages/maq-brokers/src",
     "packages/maq-risk/src",
     "packages/maq-engine/src",
+    "services/mt5-gateway/src",
 ]
