@@ -43,7 +43,7 @@
 | P0-07 | ✅ 补 `LICENSE` 文件（README 里已经声明是 MIT） | LRM | P1 | 0.1h | 仓库根目录有 LICENSE |
 | P0-08 | ✅ 修 README：集成表改成 🔜 Planned、更新过时的模型名；修 `ROADMAP.md` / `CONTRIBUTING.md` 的字面量 `\n` | LBF | P1 | 0.5h | GitHub 页面显示正常，没有夸大的描述 |
 | P0-09 | ✅ 更新过时的 `AGENTS.md`，修 README 里的 `<your-username>` | MAQ | P1 | 0.5h | 文档和代码一致 |
-| P0-10 | **写 4 篇 ADR（架构决策记录）**：仓库结构、Agent 框架、UI 技术栈、MT5 部署方式 | MAQ | P0 | 2–3h | `docs/adr/` 下有 4 篇 ADR，每篇写清"背景 / 选项 / 决定 / 后果" |
+| P0-10 | ✅ **写 4 篇 ADR（架构决策记录）**：仓库结构、Agent 框架、UI 技术栈、MT5 部署方式 | MAQ | P0 | 2–3h | `docs/adr/` 下有 4 篇 ADR，每篇写清"背景 / 选项 / 决定 / 后果" |
 | P0-11 | **采集升级前基线**：用修好风控的旧系统在模拟盘跑满一周，记录每轮耗时、模型失败率、交易次数、盈亏 | MAQ | P1 | 持续 1 周 | 一份基线报告，升级后拿来做对比 |
 | P0-12 | **确认 DeepSeek 端点还能用**：多家托管商已经下线 V3.2，DeepSeek 官方旧模型名也已停用。把模型 ID 从代码里抽到配置，准备切到 V4（Flash 做快速档、Pro 做主力档） | MAQ | P0 | 1h | 端点可用性有结论；换模型只改一行配置 |
 | P0-13 | **快速见效**：三个 CLI 都换成原生的 Schema 参数（`codex exec --output-schema`、`claude -p --output-format json --json-schema`、`gemini -p --output-format json`，以各 CLI 当前版本的帮助文档为准），先把 JSON 解析失败率压下来 | MAQ | P1 | 2h | 解析失败率明显低于基线 |

@@ -4,10 +4,10 @@
 
 | 编号 | 决策 | 状态 |
 |---|---|---|
-| [0001](0001-repository-structure.md) | 仓库结构：一个平台 + 一个引擎 | 🟡 提议中，等你拍板 |
-| [0002](0002-agent-framework.md) | Agent 框架：PydanticAI 2 + 自研轻量编排 | 🟡 提议中，等你拍板 |
-| [0003](0003-control-room-ui.md) | 控制台技术栈：Next.js + shadcn/ui，先用 Streamlit 过渡 | 🟡 提议中，等你拍板 |
-| [0004](0004-mt5-deployment.md) | MT5 部署：Windows VPS 跑 Gateway，开发和 CI 用 Wine | 🟡 提议中，等你拍板 |
+| [0001](0001-repository-structure.md) | 仓库结构：一个平台 + 一个引擎 | ✅ 已采纳（2026-11-03） |
+| [0002](0002-agent-framework.md) | Agent 框架：PydanticAI 2 + 自研轻量编排 | ✅ 已采纳（2026-11-03） |
+| [0003](0003-control-room-ui.md) | 控制台技术栈：Next.js + shadcn/ui，先用 Streamlit 过渡 | ✅ 已采纳（2026-11-03） |
+| [0004](0004-mt5-deployment.md) | MT5 部署：Windows VPS 跑 Gateway，开发和 CI 用 Wine | ✅ 已采纳（2026-11-03） |
 | [0005](0005-config-validation.md) | 配置：保留 7 个 YAML，加类型校验和环境变量覆盖 | ✅ 已采纳（2026-11-03） |
 | [0006](0006-defer-domain-models.md) | 领域模型推迟到阶段 2，和 Broker 接口一起设计 | ✅ 已采纳（2026-11-03） |
 

@@ -1,6 +1,6 @@
 # ADR-0002：Agent 框架——PydanticAI 2 + 自研轻量编排
 
-- 状态：🟡 提议中（等你拍板）
+- 状态：✅ 已采纳（2026-11-03）
 - 日期：2026-11-03
 
 ## 背景
@@ -18,7 +18,7 @@
 | 测试 | 自带 TestModel / FunctionModel | 需要自己注入假模型 |
 | 依赖 | 轻 | 带上 langchain-core |
 
-## 决定（建议）
+## 决定
 
 PydanticAI 2 做单个 Agent，编排自己写（asyncio + 领域事件日志）。理由：
 
