@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from typing import Any
 
+from agents.json_utils import loads_strict
 from deepseek.client import DeepSeekClient
 from tools import mt5_connection
 from tools.tool_registry import call_tool, list_tools
@@ -269,7 +271,7 @@ Use tools as needed to gather missing information."""
         """Parse JSON from response."""
         try:
             # Try direct parse
-            return json.loads(output)
+            return loads_strict(output)
         except json.JSONDecodeError:
             pass
 
@@ -278,7 +280,7 @@ Use tools as needed to gather missing information."""
             start = output.find("{")
             end = output.rfind("}") + 1
             if start >= 0 and end > start:
-                return json.loads(output[start:end])
+                return loads_strict(output[start:end])
         except json.JSONDecodeError:
             pass
 
@@ -295,9 +297,15 @@ Use tools as needed to gather missing information."""
         decision: dict[str, Any],
         original_signal: dict[str, Any],
     ) -> dict[str, Any]:
-        """Validate and enrich the decision."""
+        """Validate and enrich the decision.
+
+        The trading department sizes and executes the research decision; it may not
+        trade a different symbol or direction. Anything that is not a well-formed
+        order for the researched trade becomes a REJECT, with the reason recorded.
+        """
+        verdict = str(decision.get("decision", "REJECT")).strip().upper()
         result = {
-            "decision": decision.get("decision", "REJECT"),
+            "decision": verdict,
             "reason": decision.get("reason", "No reason provided"),
             "rationale": decision.get("rationale"),
             "order": decision.get("order"),
@@ -305,15 +313,39 @@ Use tools as needed to gather missing information."""
             "original_signal": original_signal,
         }
 
-        # Validate order if EXECUTE
-        if result["decision"] == "EXECUTE" and result["order"]:
-            order = result["order"]
-            required = ["symbol", "action", "volume"]
-            missing = [f for f in required if f not in order]
-            if missing:
-                result["decision"] = "REJECT"
-                result["reason"] = f"Order missing required fields: {missing}"
-                result["order"] = None
+        def reject(reason: str) -> dict[str, Any]:
+            logger.warning("Trading agent decision rejected: %s", reason)
+            result.update(decision="REJECT", reason=reason, order=None)
+            return result
+
+        if verdict not in {"EXECUTE", "MODIFY", "REJECT"}:
+            return reject(f"Unknown decision: {decision.get('decision')!r}")
+        if verdict == "REJECT":
+            result["order"] = None
+            return result
+
+        order = result["order"]
+        if not isinstance(order, dict):
+            return reject(f"{verdict} without an order")
+        missing = [field for field in ("symbol", "action", "volume") if field not in order]
+        if missing:
+            return reject(f"Order missing required fields: {missing}")
+
+        try:
+            volume = float(order["volume"])
+        except (TypeError, ValueError):
+            volume = 0.0
+        if not math.isfinite(volume) or volume <= 0.0:
+            return reject(f"Order volume must be positive, got {order['volume']!r}")
+
+        expected_symbol = str(original_signal.get("symbol") or "").upper()
+        expected_action = str(original_signal.get("action") or "").upper()
+        symbol = str(order["symbol"]).upper()
+        action = str(order["action"]).upper()
+        if expected_symbol and symbol != expected_symbol:
+            return reject(f"Order symbol {symbol} differs from research symbol {expected_symbol}")
+        if expected_action and action != expected_action:
+            return reject(f"Order action {action} differs from research action {expected_action}")
 
         return result
 
