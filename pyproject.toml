@@ -13,6 +13,7 @@ dependencies = [
     "openai>=3.43,<4",
     "jsonschema>=4.23",
     "PyYAML>=6.0.2",
+    "maq-core",
 ]
 
 [dependency-groups]
@@ -30,10 +31,16 @@ dev = [
 # Scripts are run from the checkout, e.g. `uv run python scripts/run_loop.py`.
 package = false
 
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+maq-core = { workspace = true }
+
 # --------------------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
 minversion = "9.0"
-testpaths = ["tests"]
+testpaths = ["tests", "packages"]
 # Make the top-level packages (agents, data, execution, ...) importable in tests
 # without sys.path hacks, and import test modules by path to avoid basename clashes.
 pythonpath = ["."]
@@ -99,6 +106,8 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = [
+    "maq_core",
+    "maq_cli",
     "agents",
     "data",
     "deepseek",
@@ -112,3 +121,12 @@ known-first-party = [
     "validation",
     "tests",
 ]
+
+# --------------------------------------------------------------------------- mypy
+# New packages are type-checked strictly; legacy top-level modules are not (yet).
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["packages/maq-core/src"]
+mypy_path = ["packages/maq-core/src"]

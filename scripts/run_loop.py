@@ -38,6 +38,8 @@ from data.portfolio_state import get_open_orders, get_open_positions
 from data.trade_history import get_deals_today
 from execution.mt5_executor import execute_signal
 from fusion.fusion_engine import decision_signal, fuse_signals
+from maq_core.config import ConfigError, live_trading_issues, load_config
+from maq_core.logging import bind_log_context, unbind_log_context
 from risk.account_guard import apply_account_limits
 from risk.correlation_guard import check_correlation_guard
 from risk.daily_guard import check_daily_limits, compute_daily_stats
@@ -473,6 +475,13 @@ def main() -> None:
     args = parse_args()
     config_dir = repo_root / "config"
 
+    # Validate every config file up front, so a typo fails here and not mid-cycle.
+    try:
+        app_config = load_config(config_dir)
+    except ConfigError as error:
+        print(error, file=sys.stderr)
+        raise SystemExit(2) from None
+
     # Setup logging
     tool_cfg = load_yaml(config_dir / "tool_config.yaml")
     risk_cfg = load_yaml(config_dir / "risk_config.yaml")
@@ -494,6 +503,14 @@ def main() -> None:
         logger.info("  Mode: DRY RUN -- no orders are sent (pass --live to trade)")
     logger.info("=" * 70)
 
+    unsafe = live_trading_issues(app_config)
+    if unsafe and args.live:
+        for issue in unsafe:
+            logger.error("Refusing to trade live: %s", issue)
+        raise SystemExit(2)
+    for issue in unsafe:
+        logger.warning("Not allowed with --live: %s", issue)
+
     # Create trading agent
     trading_agent = create_trading_agent(config_dir, mt5_cfg)
     if trading_agent is None:
@@ -507,6 +524,7 @@ def main() -> None:
         while True:
             cycle_start = datetime.now(UTC)
             cycle_count += 1
+            bind_log_context(cycle=cycle_count)
 
             logger.info("\n" + "=" * 70)
             logger.info("CYCLE %d | %s", cycle_count, cycle_start.strftime("%Y-%m-%d %H:%M:%S UTC"))
@@ -520,6 +538,7 @@ def main() -> None:
             else:
                 # Step 2: For each symbol, run full pipeline
                 for symbol in symbols:
+                    bind_log_context(symbol=symbol)
                     try:
                         # Research Department
                         research_result = run_research_department(
@@ -704,6 +723,8 @@ def main() -> None:
                     except Exception as exc:
                         logger.exception("[%s] Cycle error", symbol)
                         save_cycle({"symbol": symbol, "error": str(exc)}, cycle_dir)
+
+            unbind_log_context("symbol")
 
             # Check max cycles
             if args.max_cycles and cycle_count >= args.max_cycles:

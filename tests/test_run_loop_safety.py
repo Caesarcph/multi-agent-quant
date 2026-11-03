@@ -106,3 +106,32 @@ def test_shipped_risk_config_enforces_guards():
     risk_cfg = yaml.safe_load((REPO_ROOT / "config" / "risk_config.yaml").read_text())
     assert risk_cfg["enforcement"]["enabled"] is True
     assert risk_cfg["account_level"]["max_drawdown"] == 0.5
+
+
+@pytest.fixture
+def quiet_main(run_loop, monkeypatch):
+    """Run main() without touching the repo's logs/ or creating any agent."""
+    monkeypatch.setattr(run_loop, "setup_logging", lambda *args, **kwargs: None)
+
+    def no_agent(*args, **kwargs):
+        raise AssertionError("main() must stop before creating the trading agent")
+
+    monkeypatch.setattr(run_loop, "create_trading_agent", no_agent)
+    return run_loop
+
+
+def test_live_is_refused_when_risk_enforcement_is_off(quiet_main, monkeypatch, capsys):
+    monkeypatch.setenv("MAQ_RISK__ENFORCEMENT__ENABLED", "false")
+    monkeypatch.setattr("sys.argv", ["run_loop.py", "--live"])
+    with pytest.raises(SystemExit) as caught:
+        quiet_main.main()
+    assert caught.value.code == 2
+
+
+def test_invalid_config_stops_before_anything_runs(quiet_main, monkeypatch, capsys):
+    monkeypatch.setenv("MAQ_RISK__TRADE_LEVEL__PER_TRADE_RISK", "0.2")  # above the hard cap
+    monkeypatch.setattr("sys.argv", ["run_loop.py"])
+    with pytest.raises(SystemExit) as caught:
+        quiet_main.main()
+    assert caught.value.code == 2
+    assert "risk_config.yaml: trade_level.per_trade_risk" in capsys.readouterr().err

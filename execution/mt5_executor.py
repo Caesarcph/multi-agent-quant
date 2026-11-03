@@ -481,7 +481,7 @@ def execute_signal(
                     )
 
         volume = default_volume
-        if execution_cfg.get("use_signal_volume", True):
+        if execution_cfg.get("use_signal_volume", False):
             volume = float(signal.get("volume", 0.0))
             if volume <= 0.0:
                 return ExecutionResult(
