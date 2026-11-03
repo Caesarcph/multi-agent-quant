@@ -1,0 +1,48 @@
+# Works with `pre-commit` or its faster drop-in `prek`:
+#   uv tool install prek && prek install
+# Project tools run through `uv run`, so hooks use the versions pinned in uv.lock.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        exclude: \.md$
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --frozen ruff check --fix
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format
+        language: system
+        types_or: [python, pyi]
+      - id: mypy
+        name: mypy (packages/)
+        entry: uv run --frozen mypy
+        language: system
+        pass_filenames: false
+        files: ^packages/
+      - id: maq-config
+        name: validate config/*.yaml
+        entry: uv run --frozen maq config validate
+        language: system
+        pass_filenames: false
+        files: ^config/
+      - id: requirements-export
+        name: regenerate requirements*.txt from uv.lock
+        entry: >-
+          bash -c 'uv export --frozen --no-dev --no-hashes --quiet -o requirements.txt &&
+          uv export --frozen --only-dev --no-hashes --quiet -o requirements-dev.txt'
+        language: system
+        pass_filenames: false
+        files: ^(uv\.lock|pyproject\.toml|packages/[^/]+/pyproject\.toml)$
