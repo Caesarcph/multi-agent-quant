@@ -27,3 +27,33 @@ account_level:
 # daily loss limit and exposure limits are all skipped.
 enforcement:
   enabled: true
+
+# ---------------------------------------------------------------------------
+# Risk kernel (packages/maq-risk). The legacy loop does not read these yet.
+# Stop losses are always required by the kernel, whatever require_stop_loss says.
+pre_trade:
+  min_reward_risk: 1.0          # take-profit distance / stop distance
+  require_take_profit: false
+  min_stop_atr: 0.5             # stop distance between 0.5 and 6 ATR
+  max_stop_atr: 6.0
+  max_spread_to_stop: 0.25      # spread at most a quarter of the stop distance
+  signal_ttl_seconds: 900       # proposals older than 15 minutes are stale
+  max_price_deviation_pips: 10  # proposal price vs market (catches invented levels)
+  max_pending_distance_pips: 100
+  news_blackout_minutes: 30     # no new positions 30 min either side of high-impact news
+  max_margin_usage: 0.5         # used margin after the trade, as a share of equity
+  max_volume_per_trade: null    # lots; optional extra cap
+  require_mandate_for_demo: false   # real-money accounts always need a mandate
+
+sizing:
+  min_confidence: 0.5           # below this: no trade; at it: half the risk budget
+  min_confidence_multiplier: 0.5
+  commission_per_lot: 0.0       # round trip, added to the loss at the stop
+
+breakers:
+  window: 20                    # recent model calls considered
+  min_samples: 5
+  api_error_rate: 0.5           # pause new positions above these failure rates
+  schema_failure_rate: 0.3
+  cooldown_minutes: 30
+  llm_daily_budget_usd: null    # pause new positions once the day's LLM spend reaches this

@@ -8,7 +8,10 @@
     # via
     #   maq-brokers
     #   maq-cli
+    #   maq-risk
     #   multi-agent-quant
+-e ./packages/maq-risk
+    # via multi-agent-quant
 annotated-doc==0.0.5
     # via typer
 annotated-types==0.8.0

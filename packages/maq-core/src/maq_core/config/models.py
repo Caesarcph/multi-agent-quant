@@ -402,6 +402,48 @@ class EnforcementSettings(StrictModel):
     enabled: bool = True
 
 
+# The three sections below are read by the risk kernel (packages/maq-risk);
+# the legacy loop ignores them.
+class PreTradeChecks(StrictModel):
+    min_reward_risk: Annotated[float, Field(ge=0.0)] = 1.0  # TP distance / SL distance
+    require_take_profit: bool = False
+    # Stop distance in ATRs: closer is noise, further makes the size meaningless.
+    min_stop_atr: Annotated[float, Field(ge=0.0)] = 0.5
+    max_stop_atr: Annotated[float, Field(gt=0.0)] = 6.0
+    max_spread_to_stop: Annotated[float, Field(gt=0.0, le=1.0)] = 0.25
+    signal_ttl_seconds: PositiveInt = 900
+    # How far a proposal's prices may be from the market (catches invented levels).
+    max_price_deviation_pips: Annotated[float, Field(gt=0.0)] = 10.0
+    max_pending_distance_pips: Annotated[float, Field(gt=0.0)] = 100.0
+    news_blackout_minutes: NonNegativeInt = 30
+    max_margin_usage: Annotated[float, Field(gt=0.0, le=1.0)] = 0.5  # of equity, after the trade
+    max_volume_per_trade: Annotated[float, Field(gt=0.0)] | None = None
+    require_mandate_for_demo: bool = False  # real-money accounts always need one
+
+    @model_validator(mode="after")
+    def _stop_band(self) -> Self:
+        if self.min_stop_atr >= self.max_stop_atr:
+            raise ValueError("min_stop_atr must be below max_stop_atr")
+        return self
+
+
+class SizingSettings(StrictModel):
+    # Below min_confidence the proposal is rejected; at it the size is
+    # min_confidence_multiplier of the full risk budget, rising linearly to 1.0.
+    min_confidence: Annotated[float, Field(ge=0.0, lt=1.0)] = 0.5
+    min_confidence_multiplier: Annotated[float, Field(gt=0.0, le=1.0)] = 0.5
+    commission_per_lot: Annotated[float, Field(ge=0.0)] = 0.0  # round trip, account currency
+
+
+class BreakerSettings(StrictModel):
+    window: PositiveInt = 20  # most recent calls considered
+    min_samples: PositiveInt = 5
+    api_error_rate: Annotated[float, Field(gt=0.0, le=1.0)] = 0.5
+    schema_failure_rate: Annotated[float, Field(gt=0.0, le=1.0)] = 0.3
+    cooldown_minutes: PositiveInt = 30
+    llm_daily_budget_usd: Annotated[float, Field(gt=0.0)] | None = None
+
+
 class RiskConfig(StrictModel):
     """risk_config.yaml"""
 
@@ -409,6 +451,9 @@ class RiskConfig(StrictModel):
     daily_level: DailyLevelRisk = Field(default_factory=DailyLevelRisk)
     account_level: AccountLevelRisk = Field(default_factory=AccountLevelRisk)
     enforcement: EnforcementSettings = Field(default_factory=EnforcementSettings)
+    pre_trade: PreTradeChecks = Field(default_factory=PreTradeChecks)
+    sizing: SizingSettings = Field(default_factory=SizingSettings)
+    breakers: BreakerSettings = Field(default_factory=BreakerSettings)
 
 
 # =============================================================================
