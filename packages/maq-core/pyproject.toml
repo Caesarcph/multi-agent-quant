@@ -1,7 +1,7 @@
 [project]
 name = "maq-core"
-version = "0.1.0"
-description = "Shared foundations for multi-agent-quant: typed configuration, clock, logging."
+version = "0.2.0"
+description = "Shared foundations for multi-agent-quant: domain types, events, clock, typed configuration, logging."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
