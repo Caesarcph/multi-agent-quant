@@ -100,7 +100,11 @@ class FakeLLMServer:
                 self.wfile.write(b"data: [DONE]\n\n")
 
         self._httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
+        # A short poll interval keeps shutdown() (test teardown) fast.
+        httpd = self._httpd
+        self._thread = threading.Thread(
+            target=lambda: httpd.serve_forever(poll_interval=0.02), daemon=True
+        )
         self._thread.start()
         return self
 
