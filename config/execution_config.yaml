@@ -1,11 +1,13 @@
 enabled: true
 # When enabled is true, set dry_run to false to allow order_send.
-dry_run: false
+# scripts/run_loop.py ignores this and only trades with an explicit --live flag.
+dry_run: true
 
-# Use signal-provided volume directly.
-use_signal_volume: true
-# Use signal risk fraction + stop loss to size volume (ignored if use_signal_volume is true).
-use_risk_sizing: false
+# Use signal-provided volume directly (lets the LLM pick the lot size -- not recommended).
+use_signal_volume: false
+# Size volume from risk fraction + stop distance (ignored if use_signal_volume is true).
+# A volume proposed by the LLM can only shrink this size, never grow it.
+use_risk_sizing: true
 
 # Default volume if sizing is not implemented yet.
 default_volume: 0.01
@@ -21,7 +23,7 @@ require_tick_bid_ask: true
 # Optional session filters; set to a number to enforce.
 min_session_deals: null
 min_session_volume: null
-enforce_safety: false
+enforce_safety: true
 
 # Position management for existing trades
 position_management:

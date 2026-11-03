@@ -19,7 +19,7 @@ from deepseek.challenge_agent import DeepSeekChallengeAgent, apply_challenge_res
 from deepseek.client import DeepSeekClient, load_deepseek_config
 from deepseek.regime_analyst import DeepSeekRegimeAnalyst, build_multi_tf_data
 from execution.mt5_executor import execute_signal, render_execution_result
-from fusion.fusion_engine import fuse_signals
+from fusion.fusion_engine import decision_signal, fuse_signals
 from risk.account_guard import apply_account_limits
 from risk.correlation_guard import check_correlation_guard
 from risk.daily_guard import check_daily_limits, compute_daily_stats
@@ -182,7 +182,8 @@ def run_once(
     fused = fuse_signals(signals, fusion_cfg)
 
     enforcement = risk_cfg.get("enforcement", {}).get("enabled", True)
-    final_signal = fused["representative_signal"]
+    # Act on the ensemble decision, not one model's raw signal (see decision_signal).
+    final_signal = decision_signal(fused)
     deepseek_cfg = load_deepseek_config(config_dir)
     auxiliary_cfg = deepseek_cfg.get("auxiliary", {}) if deepseek_cfg else {}
     challenge_cfg = auxiliary_cfg.get("challenge_agent", {}) if auxiliary_cfg else {}
@@ -231,9 +232,8 @@ def run_once(
                 errors.append({"agent": "deepseek_aux", "error": str(exc)})
     risk_notes: List[str] = []
     if enforcement:
-        final_signal, risk_notes = apply_basic_risk(
-            fused["representative_signal"], risk_cfg
-        )
+        # Use final_signal so a challenge-agent adjustment above is not discarded.
+        final_signal, risk_notes = apply_basic_risk(final_signal, risk_cfg)
         final_signal, account_notes = apply_account_limits(
             final_signal, account_state, risk_cfg.get("account_level", {})
         )

@@ -1,41 +1,46 @@
 # Repository Guidelines
 
-This repository is currently documentation-only. The `README.md` defines the target architecture, planned directories, and configuration patterns for a multi-agent quantitative trading system. Use this guide to keep contributions aligned until source code lands.
+Multi-agent LLM trading system: four research agents (GPT/Codex, Claude, Gemini, DeepSeek) analyse an MT5 market snapshot, their signals are fused by weighted voting, a DeepSeek trading agent turns the result into an order, and risk guards decide whether it reaches MetaTrader 5. `CLAUDE.md` has the full architecture; the 2026 upgrade plan is in `docs/roadmap/`.
 
-## Project Structure & Module Organization
+## Project Structure
 
-- Current state: only `README.md` exists in the repo root.
-- Planned layout (from the README): `orchestrator/`, `agents/`, `tools/`, `fusion/`, `risk/`, `execution/`, `validation/`, `deepseek/`, `data/`, `config/`, `tests/`, `logs/`, and `reports/`.
-- Keep modules cohesive (e.g., MT5 data access in `tools/mt5_tools.py`, fusion logic in `fusion/`, risk limits in `risk/`).
+- `scripts/run_loop.py` – main entry point (scan → research → fusion → risk → trading dept → execution).
+- `orchestrator/` – single-cycle runner used by `scripts/run_cycle.py`.
+- `agents/` – CLI and DeepSeek agent wrappers, trading agent, prompts and output schema.
+- `fusion/` – weighted voting with regime agreement; `decision_signal()` is what downstream code acts on.
+- `risk/` – trade/daily/account/exposure/correlation guards and position sizing.
+- `execution/` – MT5 order execution and safety checks.
+- `data/`, `tools/`, `deepseek/`, `validation/`, `plugins/` – state, MT5 helpers, auxiliary DeepSeek tasks, paper trading/backtests, external data.
+- `config/*.yaml` – all runtime configuration. `tests/` – pytest suite.
 
-## Build, Test, and Development Commands
+## Commands (Windows)
 
-No build, test, or run commands are committed yet. When code is added, document canonical commands here and in `README.md`. Examples that align with the planned structure:
-
-```bash
-python orchestrator/main.py    # run the orchestrator (once it exists)
-pytest                         # run tests (once a test runner is chosen)
+```powershell
+python -m venv .venv
+.\.venv\Scripts\pip install -r requirements.txt -r requirements-dev.txt
+.\.venv\Scripts\pytest                                 # tests
+.\.venv\Scripts\ruff check .                           # lint
+.\.venv\Scripts\python scripts\run_loop.py --max-cycles 1   # one dry-run cycle
+.\.venv\Scripts\python scripts\run_loop.py --live           # send orders to the demo account
 ```
 
-## Coding Style & Naming Conventions
+MT5 integration tests only run with `MT5_INTEGRATION=1` and a running terminal.
 
-- Default to standard Python conventions: 4-space indentation, `snake_case` for functions/variables, and `CapWords` for classes.
-- Keep module and file names lowercase with underscores (e.g., `risk_config.py`, `tool_registry.py`).
-- Use lower_snake_case keys in YAML/JSON configs, matching the patterns shown in the README examples (e.g., `risk_config.yaml`).
+## Safety Rules
 
-## Testing Guidelines
+- `scripts/run_loop.py` never sends orders without `--live`. Do not reintroduce a hard-coded `dry_run = False`.
+- Keep `enforcement.enabled: true` in `config/risk_config.yaml`; turning it off skips the drawdown hard stop and all daily/exposure limits.
+- Lot size comes from the risk budget (`use_risk_sizing: true`). An LLM-proposed volume may only shrink it (`risk/position_sizer.py::size_order`); do not switch on `use_signal_volume`.
+- Act on `decision_signal(fused)`, never on `fused["representative_signal"]` directly: the representative can be BUY/SELL when the ensemble decided HOLD.
+- Keep API keys in environment variables (`NVIDIA_API_KEY`); never commit `.env`, `logs/` or `reports/`.
 
-- No testing framework is configured yet.
-- When tests are introduced, place them under `tests/` and name files `test_*.py`, mirroring module names when possible.
-- Document how to run tests and any coverage targets once the runner is chosen.
+## Coding Style
 
-## Commit & Pull Request Guidelines
+- Python 3.10+, 4-space indentation, `snake_case` functions and variables, `CapWords` classes.
+- YAML/JSON config keys use `lower_snake_case`.
+- Tests live in `tests/test_*.py`, mirroring module names; add a test for every bug fix.
 
-- This directory is not a git repository yet, so there is no commit history to summarize.
-- If you initialize git, use concise, imperative commit messages (e.g., "Add MT5 tool registry") and include issue links in PR descriptions.
-- PRs should state the problem, the approach, and how you tested (or why tests are not yet available).
+## Commits and Pull Requests
 
-## Security & Configuration Tips
-
-- Keep API keys in environment variables; the README references `DEEPSEEK_API_KEY`.
-- Treat `config/` and `logs/` as environment-specific; avoid committing secrets or large generated artifacts.
+- Concise, imperative commit messages (e.g. "Add MT5 tool registry").
+- PRs state the problem, the approach, and how it was tested.
