@@ -356,11 +356,13 @@ class TradeLevelRisk(StrictModel):
 
 
 class DailyLevelRisk(StrictModel):
+    # Loss limit and profit target are fractions of the balance at the start of
+    # the day (0.03 = 3%); max_daily_volume is in lots.
     daily_loss_limit: (
         Annotated[float, Field(gt=0.0, le=HARD_LIMITS.max_daily_loss_limit)] | None
     ) = None
     max_daily_trades: PositiveInt | None = None
-    daily_profit_target: Annotated[float, Field(gt=0.0)] | None = None
+    daily_profit_target: Annotated[float, Field(gt=0.0, le=1.0)] | None = None
     max_daily_volume: Annotated[float, Field(gt=0.0)] | None = None
 
 

@@ -605,7 +605,9 @@ def main() -> None:
                                 risk_cfg.get("account_level", {}),
                             )
 
-                        daily_stats = compute_daily_stats(deals_today)
+                        daily_stats = compute_daily_stats(
+                            deals_today, balance=(account_info or {}).get("balance")
+                        )
                         daily_state = None
                         daily_state_cfg = tool_cfg.get("daily_state", {})
                         if daily_state_cfg.get("enabled", False):

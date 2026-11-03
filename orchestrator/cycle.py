@@ -255,7 +255,9 @@ def run_once(
                 final_signal = {**final_signal, "action": "HOLD"}
                 risk_notes.extend(correlation_notes)
 
-    daily_stats = compute_daily_stats(deals_today)
+    daily_stats = compute_daily_stats(
+        deals_today, balance=snapshot.get("account", {}).get("balance")
+    )
     if enforcement:
         daily_notes = check_daily_limits(final_signal, daily_stats, risk_cfg.get("daily_level", {}))
         if daily_notes:
