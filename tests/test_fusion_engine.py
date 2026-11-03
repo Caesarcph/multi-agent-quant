@@ -1,13 +1,12 @@
 """Tests for fusion engine."""
+
 from __future__ import annotations
 
 from fusion.fusion_engine import decision_signal, fuse_signals
 
 
 def test_fusion_thresholds_buy() -> None:
-    cfg = {
-        "voting": {"thresholds": {"buy": 0.2, "sell": -0.2}, "default_weights": {}}
-    }
+    cfg = {"voting": {"thresholds": {"buy": 0.2, "sell": -0.2}, "default_weights": {}}}
     signals = [
         {"model": "gpt", "action": "BUY", "confidence": 0.6, "context": {"regime": "ranging"}},
         {"model": "claude", "action": "BUY", "confidence": 0.7, "context": {"regime": "ranging"}},
@@ -19,12 +18,21 @@ def test_fusion_thresholds_buy() -> None:
 
 def test_fusion_regime_required_fallback() -> None:
     cfg = {
-        "regime_agreement": {"required": True, "min_agreement_ratio": 0.75, "fallback_action": "HOLD"},
+        "regime_agreement": {
+            "required": True,
+            "min_agreement_ratio": 0.75,
+            "fallback_action": "HOLD",
+        },
         "voting": {"thresholds": {"buy": 0.2, "sell": -0.2}, "default_weights": {}},
     }
     signals = [
         {"model": "gpt", "action": "BUY", "confidence": 0.6, "context": {"regime": "ranging"}},
-        {"model": "claude", "action": "BUY", "confidence": 0.7, "context": {"regime": "trending_up"}},
+        {
+            "model": "claude",
+            "action": "BUY",
+            "confidence": 0.7,
+            "context": {"regime": "trending_up"},
+        },
         {"model": "gemini", "action": "BUY", "confidence": 0.6, "context": {"regime": "volatile"}},
         {"model": "deepseek", "action": "BUY", "confidence": 0.6, "context": {"regime": "ranging"}},
     ]
@@ -47,7 +55,11 @@ def test_decision_signal_follows_regime_fallback() -> None:
     # All four vote BUY but disagree on regime: the gate says HOLD and no model
     # voted HOLD, so the representative is a BUY. Downstream must still see HOLD.
     cfg = {
-        "regime_agreement": {"required": True, "min_agreement_ratio": 0.75, "fallback_action": "HOLD"},
+        "regime_agreement": {
+            "required": True,
+            "min_agreement_ratio": 0.75,
+            "fallback_action": "HOLD",
+        },
         "voting": {"thresholds": {"buy": 0.2, "sell": -0.2}, "default_weights": {}},
     }
     signals = [

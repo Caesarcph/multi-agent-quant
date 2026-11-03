@@ -1,16 +1,17 @@
 """Correlation guard for exposure management."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 
 def check_correlation_guard(
-    signal: Dict[str, Any],
-    correlations: Dict[str, Dict[str, float]],
-    positions: List[Dict[str, Any]],
+    signal: dict[str, Any],
+    correlations: dict[str, dict[str, float]],
+    positions: list[dict[str, Any]],
     threshold: float,
-) -> List[str]:
-    notes: List[str] = []
+) -> list[str]:
+    notes: list[str] = []
     action = signal.get("action")
     if action not in {"BUY", "SELL"}:
         return notes

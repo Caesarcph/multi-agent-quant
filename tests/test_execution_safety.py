@@ -1,4 +1,5 @@
 """Tests for execution safety checks."""
+
 from __future__ import annotations
 
 from execution.safety_checks import check_execution_safety

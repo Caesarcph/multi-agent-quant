@@ -1,16 +1,16 @@
 """Attribute MT5 deals to cycle signals."""
+
 from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from data.reporting import load_cycles
 from tools import mt5_connection, mt5_tools
 from tools.config_loader import load_yaml
 from validation.trade_attribution import attribute_deals
-
 
 repo_root = Path(__file__).resolve().parents[1]
 
@@ -38,7 +38,7 @@ def main() -> None:
     if not terminal_path:
         raise RuntimeError("mt5.terminal_path is required for attribution")
 
-    end = datetime.now(timezone.utc)
+    end = datetime.now(UTC)
     start = end - timedelta(days=int(args.days))
 
     mt5_connection.initialize(

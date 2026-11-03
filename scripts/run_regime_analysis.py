@@ -1,4 +1,5 @@
 """Run DeepSeek regime analysis for a symbol."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,7 +9,6 @@ from pathlib import Path
 from deepseek.client import DeepSeekClient, load_deepseek_config
 from deepseek.regime_analyst import DeepSeekRegimeAnalyst, build_multi_tf_data
 from tools.config_loader import load_yaml
-
 
 repo_root = Path(__file__).resolve().parents[1]
 

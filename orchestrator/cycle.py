@@ -1,16 +1,17 @@
 """Single-cycle orchestration."""
+
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from agents.agent_loader import load_agents
 from data.account_state import update_account_state
 from data.agent_audit import log_agent_output
 from data.correlation_builder import correlations_from_rates
-from data.database import store_cycle
 from data.daily_state import update_daily_state
+from data.database import store_cycle
 from data.market_snapshot import build_snapshot
 from data.metrics import summarize_cycle
 from data.portfolio_state import get_open_orders, get_open_positions
@@ -32,11 +33,11 @@ from tools.external_plugins import collect_external_data
 
 def run_once(
     config_dir: Path,
-    symbol: Optional[str] = None,
-    timeframe: Optional[str] = None,
-    bars: Optional[int] = None,
-    include_agents: Optional[List[str]] = None,
-) -> Dict[str, Any]:
+    symbol: str | None = None,
+    timeframe: str | None = None,
+    bars: int | None = None,
+    include_agents: list[str] | None = None,
+) -> dict[str, Any]:
     logger = logging.getLogger(__name__)
     tool_config = load_yaml(config_dir / "tool_config.yaml")
     mt5_cfg = tool_config.get("mt5", {})
@@ -96,7 +97,7 @@ def run_once(
             corr_tf = corr_cfg.get("timeframe", "M15")
             corr_bars = int(corr_cfg.get("bars", 120))
             if symbol not in corr_symbols:
-                corr_symbols = [symbol] + list(corr_symbols)
+                corr_symbols = [symbol, *corr_symbols]
             correlations = correlations_from_rates(corr_symbols, corr_tf, corr_bars)
             if snapshot_cfg.get("include_correlations", False):
                 snapshot["correlations"] = correlations
@@ -114,7 +115,7 @@ def run_once(
         )
 
     external_data = None
-    external_errors: List[Dict[str, Any]] = []
+    external_errors: list[dict[str, Any]] = []
     if external_cfg.get("enabled", False):
         ext_cfg = dict(external_cfg)
         ext_cfg.setdefault("symbol", symbol)
@@ -129,8 +130,8 @@ def run_once(
     if not agents:
         raise RuntimeError("No agents available for this run.")
 
-    signals: List[Dict[str, Any]] = []
-    errors: List[Dict[str, Any]] = []
+    signals: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
 
     audit_enabled = bool(audit_cfg.get("enabled", False))
     audit_dir = config_dir.parent / audit_cfg.get("directory", "logs/agent_outputs")
@@ -155,7 +156,7 @@ def run_once(
                     max_chars=int(audit_cfg.get("max_chars", 4000)),
                     repair_output=repair_output,
                 )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.exception("Agent %s failed", agent.name)
             errors.append({"agent": agent.name, "error": str(exc)})
             if audit_enabled:
@@ -197,11 +198,10 @@ def run_once(
         min_ratio = float(challenge_cfg.get("min_agreement_ratio", 1.0))
         if fused.get("agreement_ratio", 1.0) < min_ratio:
             return True
-        if challenge_cfg.get("trigger_on_regime_disagreement", True) and not fused.get(
-            "regime_ok", True
-        ):
-            return True
-        return False
+        return bool(
+            challenge_cfg.get("trigger_on_regime_disagreement", True)
+            and not fused.get("regime_ok", True)
+        )
 
     if deepseek_cfg.get("enabled", False) and challenge_cfg.get("enabled", False):
         if should_trigger_challenge():
@@ -216,7 +216,7 @@ def run_once(
                 parsed = challenge_result.get("parsed")
                 if parsed:
                     final_signal = apply_challenge_result(final_signal, parsed, challenge_cfg)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 errors.append({"agent": "deepseek_aux", "error": str(exc)})
 
     if deepseek_cfg.get("enabled", False) and regime_cfg.get("enabled", False):
@@ -228,9 +228,9 @@ def run_once(
                 regime_agent = DeepSeekRegimeAnalyst(deepseek_client)
                 multi_tf_data = build_multi_tf_data(symbol, mt5_cfg, regime_cfg)
                 regime_result = regime_agent.analyze_regime(symbol, multi_tf_data)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 errors.append({"agent": "deepseek_aux", "error": str(exc)})
-    risk_notes: List[str] = []
+    risk_notes: list[str] = []
     if enforcement:
         # Use final_signal so a challenge-agent adjustment above is not discarded.
         final_signal, risk_notes = apply_basic_risk(final_signal, risk_cfg)
@@ -246,7 +246,7 @@ def run_once(
             risk_notes.extend(exposure_notes)
 
         corr_threshold = risk_cfg.get("account_level", {}).get("max_correlation")
-        correlation_notes: List[str] = []
+        correlation_notes: list[str] = []
         if corr_threshold is not None and correlations:
             correlation_notes = check_correlation_guard(
                 final_signal, correlations, positions, float(corr_threshold)
@@ -257,9 +257,7 @@ def run_once(
 
     daily_stats = compute_daily_stats(deals_today)
     if enforcement:
-        daily_notes = check_daily_limits(
-            final_signal, daily_stats, risk_cfg.get("daily_level", {})
-        )
+        daily_notes = check_daily_limits(final_signal, daily_stats, risk_cfg.get("daily_level", {}))
         if daily_notes:
             final_signal = {**final_signal, "action": "HOLD"}
             risk_notes.extend(daily_notes)
@@ -303,6 +301,6 @@ def run_once(
         db_path = Path(database_cfg.get("path", "logs/analytics.db"))
         try:
             store_cycle(result, db_path)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             errors.append({"agent": "database", "error": str(exc)})
     return result

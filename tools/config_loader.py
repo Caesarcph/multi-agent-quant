@@ -1,13 +1,14 @@
 """Lightweight config loader."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import yaml
 
 
-def load_yaml(path: Path) -> Dict[str, Any]:
+def load_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"Config not found: {path}")
     with path.open("r", encoding="utf-8") as handle:

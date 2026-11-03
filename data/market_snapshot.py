@@ -1,24 +1,25 @@
 """Market snapshot assembly from MT5."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional
+from collections.abc import Iterable
+from datetime import UTC, datetime
+from typing import Any
 
-from tools import mt5_tools
-from tools import indicators
+from tools import indicators, mt5_tools
 
 RATE_FIELDS = ("time", "open", "high", "low", "close", "tick_volume")
 
 
-def _trim_rates(rates: Iterable[Dict[str, Any]]) -> list[Dict[str, Any]]:
-    trimmed: list[Dict[str, Any]] = []
+def _trim_rates(rates: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    trimmed: list[dict[str, Any]] = []
     for rate in rates:
-        entry: Dict[str, Any] = {}
+        entry: dict[str, Any] = {}
         for field in RATE_FIELDS:
             if field in rate:
                 entry[field] = rate[field]
         if "time" in entry:
-            ts = datetime.fromtimestamp(entry["time"], tz=timezone.utc)
+            ts = datetime.fromtimestamp(entry["time"], tz=UTC)
             entry["time"] = ts.isoformat().replace("+00:00", "Z")
         trimmed.append(entry)
     return trimmed
@@ -26,9 +27,9 @@ def _trim_rates(rates: Iterable[Dict[str, Any]]) -> list[Dict[str, Any]]:
 
 def _build_symbol_universe(
     symbol: str,
-    universe: Optional[List[str]],
-    universe_limit: Optional[int],
-) -> List[str]:
+    universe: list[str] | None,
+    universe_limit: int | None,
+) -> list[str]:
     if universe:
         symbols = [str(item) for item in universe]
     else:
@@ -47,23 +48,23 @@ def build_snapshot(
     symbol: str,
     timeframe: str,
     bars: int,
-    universe: Optional[List[str]] = None,
-    universe_limit: Optional[int] = None,
+    universe: list[str] | None = None,
+    universe_limit: int | None = None,
     include_universe: bool = False,
     include_universe_ticks: bool = False,
-    positions: Optional[List[Dict[str, Any]]] = None,
-    orders: Optional[List[Dict[str, Any]]] = None,
+    positions: list[dict[str, Any]] | None = None,
+    orders: list[dict[str, Any]] | None = None,
     include_positions: bool = False,
     include_orders: bool = False,
     include_indicators: bool = False,
-    indicator_config: Optional[Dict[str, Any]] = None,
+    indicator_config: dict[str, Any] | None = None,
 ) -> dict:
     account = mt5_tools.get_account_info()
     symbol_info = mt5_tools.get_symbol_info(symbol)
     rates = mt5_tools.get_rates(symbol, timeframe, count=bars)
 
-    snapshot: Dict[str, Any] = {
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    snapshot: dict[str, Any] = {
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "symbol": symbol,
         "timeframe": timeframe,
         "account": {
@@ -98,19 +99,17 @@ def build_snapshot(
         snapshot["orders"] = orders
 
     if include_indicators:
-        snapshot["indicators"] = indicators.compute_indicators(
-            rates, indicator_config
-        )
+        snapshot["indicators"] = indicators.compute_indicators(rates, indicator_config)
 
     if include_universe:
         symbol_universe = _build_symbol_universe(symbol, universe, universe_limit)
         snapshot["symbol_universe"] = symbol_universe
         if include_universe_ticks:
-            ticks: Dict[str, Any] = {}
+            ticks: dict[str, Any] = {}
             for sym in symbol_universe:
                 try:
                     tick = mt5_tools.get_symbol_tick(sym)
-                except Exception:  # noqa: BLE001
+                except Exception:
                     continue
                 ticks[sym] = {
                     "bid": tick.get("bid"),

@@ -1,12 +1,15 @@
 """MT5 data access helpers."""
+
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, Optional
+from typing import Any
 
 import MetaTrader5 as mt5
 
 from tools import indicators
+
 TIMEFRAMES = {
     "M1": mt5.TIMEFRAME_M1,
     "M5": mt5.TIMEFRAME_M5,
@@ -27,7 +30,7 @@ def _to_py(value: Any) -> Any:
         return value
 
 
-def _rows_to_dicts(rows: Iterable[Any]) -> list[Dict[str, Any]]:
+def _rows_to_dicts(rows: Iterable[Any]) -> list[dict[str, Any]]:
     if rows is None:
         return []
     names = rows.dtype.names
@@ -112,7 +115,7 @@ def get_rates(
     count: int = 100,
     start_pos: int = 0,
     ensure_select: bool = True,
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     tf = resolve_timeframe(timeframe)
     if ensure_select:
         mt5.symbol_select(symbol, True)
@@ -128,7 +131,7 @@ def get_rates_from(
     timeframe: int | str,
     from_datetime: datetime,
     count: int = 1,
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     tf = resolve_timeframe(timeframe)
     rates = mt5.copy_rates_from(symbol, tf, from_datetime, count)
     if rates is None or len(rates) == 0:
@@ -141,7 +144,7 @@ def get_rate_at(
     symbol: str,
     timeframe: int | str,
     timestamp: datetime,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     rates = get_rates_from(symbol, timeframe, timestamp, count=1)
     if not rates:
         return None
@@ -153,7 +156,7 @@ def get_ticks(
     count: int = 100,
     from_datetime: datetime | None = None,
     flags: int = mt5.COPY_TICKS_ALL,
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     if from_datetime is None:
         from_datetime = datetime.utcnow() - timedelta(days=1)
     ticks = mt5.copy_ticks_from(symbol, from_datetime, count, flags)
@@ -166,7 +169,7 @@ def get_ticks(
 def get_deals(
     start: datetime,
     end: datetime,
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     deals = mt5.history_deals_get(start, end)
     if deals is None:
         code, message = mt5.last_error()
@@ -176,7 +179,7 @@ def get_deals(
 
 def calculate_indicator(
     indicator: str,
-    rates: list[Dict[str, Any]],
+    rates: list[dict[str, Any]],
     **kwargs: Any,
 ) -> Any:
     return indicators.calculate_indicator(indicator, rates, **kwargs)

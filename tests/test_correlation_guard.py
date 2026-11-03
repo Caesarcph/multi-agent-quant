@@ -1,4 +1,5 @@
 """Tests for correlation guard."""
+
 from __future__ import annotations
 
 from risk.correlation_guard import check_correlation_guard

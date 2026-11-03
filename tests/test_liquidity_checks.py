@@ -1,4 +1,5 @@
 """Tests for liquidity checks."""
+
 from __future__ import annotations
 
 from execution.safety_checks import check_liquidity

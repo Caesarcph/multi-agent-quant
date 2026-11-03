@@ -1,13 +1,12 @@
 """Tests for position sizing."""
+
 from __future__ import annotations
 
 from risk.position_sizer import calculate_volume, size_order
 
 
 def test_calculate_volume_basic() -> None:
-    signal = {
-        "risk": {"risk_fraction_of_initial": 0.01, "stop_loss_pips": 20}
-    }
+    signal = {"risk": {"risk_fraction_of_initial": 0.01, "stop_loss_pips": 20}}
     symbol_info = {
         "trade_tick_size": 0.00001,
         "trade_tick_value": 1.0,
@@ -43,9 +42,7 @@ def test_calculate_volume_from_sl_price() -> None:
         "sl_price": 1.0800,
         "risk": {"risk_fraction_of_initial": 0.01, "stop_loss_pips": 0},
     }
-    volume, notes = calculate_volume(
-        signal, EURUSD, {"balance": 10000.0}, 0.01, entry_price=1.0820
-    )
+    volume, notes = calculate_volume(signal, EURUSD, {"balance": 10000.0}, 0.01, entry_price=1.0820)
     # 20 pips stop, $10/pip per lot, $100 risk -> 0.5 lots
     assert abs(volume - 0.5) < 1e-6
     assert notes == ["stop_distance_from_sl_price"]

@@ -1,19 +1,20 @@
 """Position sizing utilities."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
-def _pip_size(symbol_info: Dict[str, Any]) -> float:
+def _pip_size(symbol_info: dict[str, Any]) -> float:
     digits = int(symbol_info.get("digits", 5))
     point = float(symbol_info.get("point", 0.00001))
     return point * 10 if digits in (3, 5) else point
 
 
 def _stop_pips_from_price(
-    signal: Dict[str, Any],
-    risk: Dict[str, Any],
-    symbol_info: Dict[str, Any],
+    signal: dict[str, Any],
+    risk: dict[str, Any],
+    symbol_info: dict[str, Any],
     entry_price: float | None,
 ) -> float:
     """Stop distance in pips when the signal gives an absolute SL price instead of pips."""
@@ -29,19 +30,19 @@ def _stop_pips_from_price(
 
 
 def calculate_volume(
-    signal: Dict[str, Any],
-    symbol_info: Dict[str, Any],
-    account_info: Dict[str, Any],
+    signal: dict[str, Any],
+    symbol_info: dict[str, Any],
+    account_info: dict[str, Any],
     default_volume: float,
     entry_price: float | None = None,
-) -> Tuple[float, List[str]]:
+) -> tuple[float, list[str]]:
     """Size a position so that hitting the stop loses ``risk_fraction_of_initial`` of balance.
 
     The stop distance comes from ``risk.stop_loss_pips``; if that is missing or zero it is
     derived from an absolute ``sl_price`` and ``entry_price``. Falls back to ``default_volume``
     (with a note) when the inputs are insufficient.
     """
-    notes: List[str] = []
+    notes: list[str] = []
     risk = signal.get("risk")
     if not isinstance(risk, dict):
         return default_volume, ["missing_risk_for_sizing"]
@@ -83,12 +84,12 @@ def calculate_volume(
 
 
 def size_order(
-    signal: Dict[str, Any],
-    symbol_info: Dict[str, Any],
-    account_info: Dict[str, Any],
+    signal: dict[str, Any],
+    symbol_info: dict[str, Any],
+    account_info: dict[str, Any],
     default_volume: float,
     entry_price: float | None = None,
-) -> Tuple[float, List[str]]:
+) -> tuple[float, list[str]]:
     """Risk-based size, where a volume proposed by the signal (an LLM) may only shrink it."""
     volume, notes = calculate_volume(
         signal, symbol_info, account_info, default_volume, entry_price=entry_price

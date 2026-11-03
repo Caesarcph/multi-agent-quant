@@ -1,4 +1,5 @@
 """MetaTrader 5 terminal lifecycle."""
+
 from __future__ import annotations
 
 from pathlib import Path

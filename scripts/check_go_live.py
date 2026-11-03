@@ -1,4 +1,5 @@
 """Evaluate go-live criteria from paper trading results."""
+
 from __future__ import annotations
 
 import json
@@ -7,7 +8,6 @@ from pathlib import Path
 from tools.config_loader import load_yaml
 from validation.go_live_checker import check_go_live
 from validation.performance_tracker import compute_metrics, save_metrics
-
 
 repo_root = Path(__file__).resolve().parents[1]
 

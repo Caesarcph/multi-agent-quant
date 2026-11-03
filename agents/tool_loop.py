@@ -1,8 +1,10 @@
 """Optional tool-call loop for agents."""
+
 from __future__ import annotations
 
 import json
-from typing import Any, Callable, Dict, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
 from agents.json_utils import extract_json_object
 from tools import mt5_connection
@@ -28,9 +30,9 @@ def build_tool_instructions(max_tools: int = 12) -> str:
 def run_tool_loop(
     complete: Callable[[str], str],
     base_prompt: str,
-    tool_cfg: Dict[str, Any],
-    mt5_cfg: Dict[str, Any],
-) -> Tuple[str, Optional[Dict[str, Any]]]:
+    tool_cfg: dict[str, Any],
+    mt5_cfg: dict[str, Any],
+) -> tuple[str, dict[str, Any] | None]:
     enabled = bool(tool_cfg.get("enabled", False))
     if not enabled:
         output = complete(base_prompt)
@@ -45,9 +47,9 @@ def run_tool_loop(
     if include_tools:
         prompt = f"{prompt}\n\n{build_tool_instructions(max_tools=max_tools)}"
 
-    tool_history: list[Dict[str, Any]] = []
+    tool_history: list[dict[str, Any]] = []
     output = ""
-    parsed: Optional[Dict[str, Any]] = None
+    parsed: dict[str, Any] | None = None
 
     for _ in range(max_iterations + 1):
         output = complete(prompt)
@@ -74,7 +76,7 @@ def run_tool_loop(
     return output, parsed
 
 
-def _safe_parse(output: str) -> Optional[Dict[str, Any]]:
+def _safe_parse(output: str) -> dict[str, Any] | None:
     try:
         data = extract_json_object(output)
         if isinstance(data, dict):
@@ -84,7 +86,7 @@ def _safe_parse(output: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _extract_tool_request(parsed: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def _extract_tool_request(parsed: dict[str, Any] | None) -> dict[str, Any] | None:
     if not isinstance(parsed, dict):
         return None
     if "tool_request" in parsed and isinstance(parsed["tool_request"], dict):
@@ -94,7 +96,7 @@ def _extract_tool_request(parsed: Optional[Dict[str, Any]]) -> Optional[Dict[str
     return None
 
 
-def _call_tool(tool_name: str, tool_args: Dict[str, Any], mt5_cfg: Dict[str, Any]) -> Any:
+def _call_tool(tool_name: str, tool_args: dict[str, Any], mt5_cfg: dict[str, Any]) -> Any:
     if not tool_name:
         return {"error": "missing_tool_name"}
     terminal_path = mt5_cfg.get("terminal_path")
@@ -106,7 +108,7 @@ def _call_tool(tool_name: str, tool_args: Dict[str, Any], mt5_cfg: Dict[str, Any
     )
     try:
         return call_tool(tool_name, **tool_args)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return {"error": str(exc)}
     finally:
         mt5_connection.shutdown()

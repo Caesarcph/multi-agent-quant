@@ -1,10 +1,11 @@
 """Local JSON plugin for external data."""
+
 from __future__ import annotations
 
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from tools.external_plugins import ExternalDataPlugin
 
@@ -35,7 +36,7 @@ class LocalJsonPlugin(ExternalDataPlugin):
             return [item for item in items if str(item.get("series")) in allow]
         return items
 
-    def _resolve_path(self) -> Optional[Path]:
+    def _resolve_path(self) -> Path | None:
         env_path = os.environ.get("EXTERNAL_DATA_PATH")
         if env_path:
             return Path(env_path)
@@ -44,7 +45,7 @@ class LocalJsonPlugin(ExternalDataPlugin):
             return default_path
         return None
 
-    def _load_payload(self) -> Dict[str, Any]:
+    def _load_payload(self) -> dict[str, Any]:
         if not self._path or not self._path.exists():
             return {}
         try:

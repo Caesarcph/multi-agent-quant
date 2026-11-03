@@ -1,22 +1,23 @@
 """Attribute MT5 deals to prior signals."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 
 @dataclass
 class AttributionResult:
-    attributed: List[Dict[str, Any]]
-    unmatched: List[Dict[str, Any]]
-    summary: Dict[str, Any]
+    attributed: list[dict[str, Any]]
+    unmatched: list[dict[str, Any]]
+    summary: dict[str, Any]
 
 
 def attribute_deals(
-    cycles: List[Dict[str, Any]],
-    deals: List[Dict[str, Any]],
-    config: Dict[str, Any],
+    cycles: list[dict[str, Any]],
+    deals: list[dict[str, Any]],
+    config: dict[str, Any],
 ) -> AttributionResult:
     use_final = bool(config.get("use_final_signal", True))
     match_window = int(config.get("match_window_minutes", 60))
@@ -26,8 +27,8 @@ def attribute_deals(
     signals = _collect_signals(cycles, use_final)
     signals_by_symbol = _group_signals(signals)
 
-    attributed: List[Dict[str, Any]] = []
-    unmatched: List[Dict[str, Any]] = []
+    attributed: list[dict[str, Any]] = []
+    unmatched: list[dict[str, Any]] = []
 
     for deal in deals:
         if magic is not None and deal.get("magic") != magic:
@@ -69,8 +70,8 @@ def attribute_deals(
     return AttributionResult(attributed=attributed, unmatched=unmatched, summary=summary)
 
 
-def _collect_signals(cycles: List[Dict[str, Any]], use_final: bool) -> List[Dict[str, Any]]:
-    collected: List[Dict[str, Any]] = []
+def _collect_signals(cycles: list[dict[str, Any]], use_final: bool) -> list[dict[str, Any]]:
+    collected: list[dict[str, Any]] = []
     for cycle in cycles:
         if use_final:
             signal = cycle.get("final_signal")
@@ -81,8 +82,8 @@ def _collect_signals(cycles: List[Dict[str, Any]], use_final: bool) -> List[Dict
     return collected
 
 
-def _group_signals(signals: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
+def _group_signals(signals: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
     for signal in signals:
         action = signal.get("action")
         symbol = signal.get("symbol")
@@ -97,24 +98,23 @@ def _group_signals(signals: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, An
 
 
 def _find_candidate(
-    signals: List[Dict[str, Any]],
+    signals: list[dict[str, Any]],
     action: str,
     deal_time: datetime,
     match_window: int,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     window_start = deal_time - timedelta(minutes=match_window)
     candidates = [
         signal
         for signal in signals
-        if signal.get("action") == action
-        and window_start <= signal["__timestamp"] <= deal_time
+        if signal.get("action") == action and window_start <= signal["__timestamp"] <= deal_time
     ]
     if not candidates:
         return None
     return candidates[-1]
 
 
-def _deal_action(deal: Dict[str, Any]) -> Optional[str]:
+def _deal_action(deal: dict[str, Any]) -> str | None:
     deal_type = deal.get("type")
     if deal_type is None:
         return None
@@ -126,28 +126,28 @@ def _deal_action(deal: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def _deal_time(value: Any) -> Optional[datetime]:
+def _deal_time(value: Any) -> datetime | None:
     if value is None:
         return None
     try:
-        return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        return datetime.fromtimestamp(float(value), tz=UTC)
     except (TypeError, ValueError):
         return None
 
 
-def _parse_time(value: Any) -> Optional[datetime]:
+def _parse_time(value: Any) -> datetime | None:
     if isinstance(value, datetime):
-        return value.astimezone(timezone.utc)
+        return value.astimezone(UTC)
     if not value:
         return None
     try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(timezone.utc)
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(UTC)
     except ValueError:
         return None
 
 
-def _summarize(attributed: List[Dict[str, Any]]) -> Dict[str, Any]:
-    by_model: Dict[str, Dict[str, float]] = {}
+def _summarize(attributed: list[dict[str, Any]]) -> dict[str, Any]:
+    by_model: dict[str, dict[str, float]] = {}
     for item in attributed:
         signal = item.get("signal", {})
         deal = item.get("deal", {})

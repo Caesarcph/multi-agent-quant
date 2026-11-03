@@ -1,10 +1,11 @@
 """DeepSeek client wrapper with optional rate limiting."""
+
 from __future__ import annotations
 
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from openai import OpenAI
 
@@ -14,7 +15,7 @@ from tools.config_loader import load_yaml
 
 
 class DeepSeekClient:
-    def __init__(self, config: Dict[str, Any], agent_name: str = "deepseek_aux") -> None:
+    def __init__(self, config: dict[str, Any], agent_name: str = "deepseek_aux") -> None:
         self._config = config
         self._agent_name = agent_name
         api_cfg = config.get("api", {})
@@ -36,9 +37,9 @@ class DeepSeekClient:
         self._logging_cfg = config.get("logging", {}) or {}
         self._client = OpenAI(base_url=self._base_url, api_key=self._api_key)
 
-        self.last_prompt: Optional[str] = None
-        self.last_raw_output: Optional[str] = None
-        self.last_reasoning: Optional[str] = None
+        self.last_prompt: str | None = None
+        self.last_raw_output: str | None = None
+        self.last_reasoning: str | None = None
 
     @property
     def model(self) -> str:
@@ -47,7 +48,7 @@ class DeepSeekClient:
     def analyze(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         task: str = "aux",
         **overrides: Any,
     ) -> str:
@@ -76,9 +77,9 @@ class DeepSeekClient:
     def _request(
         self,
         prompt: str,
-        system: Optional[str],
-        overrides: Dict[str, Any],
-    ) -> Tuple[str, Optional[str]]:
+        system: str | None,
+        overrides: dict[str, Any],
+    ) -> tuple[str, str | None]:
         if self._limiter:
             self._limiter.wait_if_needed()
 
@@ -110,8 +111,8 @@ class DeepSeekClient:
     def _request_messages(
         self,
         messages: list[dict[str, str]],
-        overrides: Dict[str, Any],
-    ) -> Tuple[str, Optional[str]]:
+        overrides: dict[str, Any],
+    ) -> tuple[str, str | None]:
         if self._limiter:
             self._limiter.wait_if_needed()
 
@@ -163,7 +164,7 @@ class DeepSeekClient:
         task: str,
         prompt: str,
         raw_output: str,
-        reasoning: Optional[str],
+        reasoning: str | None,
     ) -> None:
         if not self._logging_cfg.get("enabled", False):
             return
@@ -181,5 +182,5 @@ class DeepSeekClient:
         )
 
 
-def load_deepseek_config(config_dir: Path) -> Dict[str, Any]:
+def load_deepseek_config(config_dir: Path) -> dict[str, Any]:
     return load_yaml(config_dir / "deepseek_config.yaml")

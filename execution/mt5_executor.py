@@ -1,9 +1,10 @@
 """MT5 order execution helpers."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import MetaTrader5 as mt5
 
@@ -16,11 +17,11 @@ from tools import mt5_connection, mt5_tools
 @dataclass
 class ExecutionResult:
     status: str
-    order_request: Optional[Dict[str, Any]] = None
-    order_response: Optional[Dict[str, Any]] = None
-    management: Optional[List[Dict[str, Any]]] = None
-    errors: Optional[list[str]] = None
-    notes: Optional[list[str]] = None
+    order_request: dict[str, Any] | None = None
+    order_response: dict[str, Any] | None = None
+    management: list[dict[str, Any]] | None = None
+    errors: list[str] | None = None
+    notes: list[str] | None = None
 
 
 def _pip_size(point: float, digits: int) -> float:
@@ -29,7 +30,7 @@ def _pip_size(point: float, digits: int) -> float:
     return point
 
 
-def _clamp_volume(volume: float, symbol_info: Dict[str, Any]) -> float:
+def _clamp_volume(volume: float, symbol_info: dict[str, Any]) -> float:
     min_vol = float(symbol_info.get("volume_min", 0.0))
     max_vol = float(symbol_info.get("volume_max", 0.0))
     step = float(symbol_info.get("volume_step", 0.0))
@@ -43,13 +44,13 @@ def _clamp_volume(volume: float, symbol_info: Dict[str, Any]) -> float:
     return float(f"{volume:.4f}")
 
 
-def _current_price(action: str, tick: Dict[str, Any]) -> float:
+def _current_price(action: str, tick: dict[str, Any]) -> float:
     if action == "BUY":
         return float(tick.get("ask"))
     return float(tick.get("bid"))
 
 
-def _direction_from_position(position: Dict[str, Any]) -> str:
+def _direction_from_position(position: dict[str, Any]) -> str:
     pos_type = position.get("type")
     if pos_type is None:
         return "UNKNOWN"
@@ -57,11 +58,11 @@ def _direction_from_position(position: Dict[str, Any]) -> str:
 
 
 def _reference_price(
-    position: Dict[str, Any],
+    position: dict[str, Any],
     action: str,
-    tick: Dict[str, Any],
-    config: Dict[str, Any],
-) -> Optional[float]:
+    tick: dict[str, Any],
+    config: dict[str, Any],
+) -> float | None:
     reference = str(config.get("sl_tp_reference", "current")).lower()
     if reference == "entry":
         price = position.get("price_open")
@@ -74,13 +75,13 @@ def _reference_price(
 
 
 def _build_sltp_request(
-    position: Dict[str, Any],
+    position: dict[str, Any],
     action: str,
-    symbol_info: Dict[str, Any],
-    tick: Dict[str, Any],
-    risk: Dict[str, Any],
-    config: Dict[str, Any],
-) -> Optional[Dict[str, Any]]:
+    symbol_info: dict[str, Any],
+    tick: dict[str, Any],
+    risk: dict[str, Any],
+    config: dict[str, Any],
+) -> dict[str, Any] | None:
     sl_pips = float(risk.get("stop_loss_pips", 0.0))
     tp_pips = float(risk.get("take_profit_pips", 0.0))
     if sl_pips <= 0.0 or tp_pips <= 0.0:
@@ -112,11 +113,11 @@ def _build_sltp_request(
 
 
 def _build_close_request(
-    position: Dict[str, Any],
-    symbol_info: Dict[str, Any],
-    tick: Dict[str, Any],
-    config: Dict[str, Any],
-) -> Optional[Dict[str, Any]]:
+    position: dict[str, Any],
+    symbol_info: dict[str, Any],
+    tick: dict[str, Any],
+    config: dict[str, Any],
+) -> dict[str, Any] | None:
     direction = _direction_from_position(position)
     if direction == "UNKNOWN":
         return None
@@ -143,12 +144,12 @@ def _build_close_request(
 
 def _record_management_result(
     action: str,
-    position: Dict[str, Any],
-    request: Dict[str, Any],
+    position: dict[str, Any],
+    request: dict[str, Any],
     status: str,
-    response: Optional[Dict[str, Any]] = None,
-    error: Optional[str] = None,
-) -> Dict[str, Any]:
+    response: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> dict[str, Any]:
     return {
         "action": action,
         "position": position.get("ticket"),
@@ -161,12 +162,12 @@ def _record_management_result(
 
 
 def manage_positions(
-    signal: Dict[str, Any],
-    positions: List[Dict[str, Any]],
-    symbol_info: Dict[str, Any],
-    tick: Dict[str, Any],
-    execution_cfg: Dict[str, Any],
-) -> tuple[List[Dict[str, Any]], List[str], bool]:
+    signal: dict[str, Any],
+    positions: list[dict[str, Any]],
+    symbol_info: dict[str, Any],
+    tick: dict[str, Any],
+    execution_cfg: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[str], bool]:
     config = execution_cfg.get("position_management", {})
     if not config.get("enabled", False):
         return [], [], False
@@ -177,14 +178,14 @@ def manage_positions(
     if not symbol_positions:
         return [], [], False
 
-    management: List[Dict[str, Any]] = []
-    notes: List[str] = []
+    management: list[dict[str, Any]] = []
+    notes: list[str] = []
     block_entry = False
     risk = signal.get("risk", {})
 
     def submit_request(
-        position: Dict[str, Any],
-        request: Optional[Dict[str, Any]],
+        position: dict[str, Any],
+        request: dict[str, Any] | None,
         action_label: str,
     ) -> None:
         if request is None:
@@ -192,9 +193,7 @@ def manage_positions(
             return
         if execution_cfg.get("dry_run", True):
             management.append(
-                _record_management_result(
-                    action_label, position, request, status="dry_run"
-                )
+                _record_management_result(action_label, position, request, status="dry_run")
             )
             return
         response = mt5.order_send(request)
@@ -228,12 +227,8 @@ def manage_positions(
                 submit_request(pos, request, "modify")
         return management, notes, True
 
-    same_dir = [
-        pos for pos in symbol_positions if _direction_from_position(pos) == action
-    ]
-    opp_dir = [
-        pos for pos in symbol_positions if _direction_from_position(pos) != action
-    ]
+    same_dir = [pos for pos in symbol_positions if _direction_from_position(pos) == action]
+    opp_dir = [pos for pos in symbol_positions if _direction_from_position(pos) != action]
 
     if same_dir and config.get("update_stops_on_same_direction", True):
         for pos in same_dir:
@@ -254,12 +249,12 @@ def manage_positions(
 
 
 def build_order_request(
-    signal: Dict[str, Any],
-    symbol_info: Dict[str, Any],
-    tick: Dict[str, Any],
-    config: Dict[str, Any],
+    signal: dict[str, Any],
+    symbol_info: dict[str, Any],
+    tick: dict[str, Any],
+    config: dict[str, Any],
     volume: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     action = signal["action"]
     entry = signal["entry"]
     risk = signal["risk"]
@@ -272,7 +267,7 @@ def build_order_request(
     if entry.get("type") == "limit":
         price = float(entry.get("price"))
 
-    def _coerce_price(value: Any) -> Optional[float]:
+    def _coerce_price(value: Any) -> float | None:
         try:
             if value is None:
                 return None
@@ -349,7 +344,7 @@ def _is_filling_mode_error(response: Any) -> bool:
     return retcode == 10030 or "Unsupported filling mode" in comment
 
 
-def _filling_mode_candidates(symbol_info: Dict[str, Any]) -> list[int]:
+def _filling_mode_candidates(symbol_info: dict[str, Any]) -> list[int]:
     candidates: list[int] = []
     raw_mode = symbol_info.get("filling_mode")
     if raw_mode is not None:
@@ -379,9 +374,9 @@ def _filling_mode_candidates(symbol_info: Dict[str, Any]) -> list[int]:
 
 
 def _send_with_filling_fallback(
-    request: Dict[str, Any],
-    symbol_info: Dict[str, Any],
-) -> tuple[Any, Dict[str, Any], list[str]]:
+    request: dict[str, Any],
+    symbol_info: dict[str, Any],
+) -> tuple[Any, dict[str, Any], list[str]]:
     notes: list[str] = []
     response = mt5.order_send(request)
     if response is not None and not _is_filling_mode_error(response):
@@ -401,10 +396,10 @@ def _send_with_filling_fallback(
 
 
 def execute_signal(
-    signal: Dict[str, Any],
-    execution_cfg: Dict[str, Any],
-    mt5_cfg: Dict[str, Any],
-    positions: Optional[List[Dict[str, Any]]] = None,
+    signal: dict[str, Any],
+    execution_cfg: dict[str, Any],
+    mt5_cfg: dict[str, Any],
+    positions: list[dict[str, Any]] | None = None,
 ) -> ExecutionResult:
     errors = validate_signal_for_execution(signal)
     terminal_path = mt5_cfg.get("terminal_path")
@@ -433,7 +428,7 @@ def execute_signal(
         if positions is None:
             positions = mt5_tools.get_positions()
 
-        management_results: List[Dict[str, Any]] = []
+        management_results: list[dict[str, Any]] = []
         block_entry = False
         management_results, management_notes, block_entry = manage_positions(
             signal, positions, symbol_info, tick, execution_cfg
@@ -522,9 +517,7 @@ def execute_signal(
                 notes=notes,
             )
 
-        response, final_request, retry_notes = _send_with_filling_fallback(
-            request, symbol_info
-        )
+        response, final_request, retry_notes = _send_with_filling_fallback(request, symbol_info)
         notes.extend(retry_notes)
         if response is None:
             code, message = mt5.last_error()
@@ -558,7 +551,7 @@ def execute_signal(
         mt5_connection.shutdown()
 
 
-def render_execution_result(result: ExecutionResult) -> Dict[str, Any]:
+def render_execution_result(result: ExecutionResult) -> dict[str, Any]:
     return {
         "status": result.status,
         "order_request": result.order_request,
@@ -566,5 +559,5 @@ def render_execution_result(result: ExecutionResult) -> Dict[str, Any]:
         "management": result.management,
         "errors": result.errors,
         "notes": result.notes,
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     }

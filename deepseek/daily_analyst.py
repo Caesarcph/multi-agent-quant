@@ -1,17 +1,18 @@
 """DeepSeek daily analyst for end-of-day summaries."""
+
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional
+from typing import Any
 
 from deepseek.client import DeepSeekClient
 from deepseek.utils import parse_json_output
 
 
 def build_daily_prompt(
-    summary: Dict[str, Any],
-    account_state: Optional[Dict[str, Any]],
-    daily_state: Optional[Dict[str, Any]],
+    summary: dict[str, Any],
+    account_state: dict[str, Any] | None,
+    daily_state: dict[str, Any] | None,
 ) -> str:
     payload = {
         "summary": summary,
@@ -34,14 +35,14 @@ def build_daily_prompt(
 class DeepSeekDailyAnalyst:
     def __init__(self, client: DeepSeekClient) -> None:
         self._client = client
-        self.last_raw_output: Optional[str] = None
+        self.last_raw_output: str | None = None
 
     def generate_daily_report(
         self,
-        summary: Dict[str, Any],
-        account_state: Optional[Dict[str, Any]],
-        daily_state: Optional[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        summary: dict[str, Any],
+        account_state: dict[str, Any] | None,
+        daily_state: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         prompt = build_daily_prompt(summary, account_state, daily_state)
         raw_output = self._client.analyze(prompt, task="daily_summary")
         self.last_raw_output = raw_output

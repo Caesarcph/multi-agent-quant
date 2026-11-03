@@ -1,11 +1,12 @@
 """Summarize cycle metrics."""
+
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any, Dict
+from typing import Any
 
 
-def summarize_cycle(result: Dict[str, Any]) -> Dict[str, Any]:
+def summarize_cycle(result: dict[str, Any]) -> dict[str, Any]:
     signals = result.get("signals", [])
     errors = result.get("errors", [])
     risk_notes = result.get("risk_notes", [])

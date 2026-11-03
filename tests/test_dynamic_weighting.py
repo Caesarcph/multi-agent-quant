@@ -1,4 +1,5 @@
 """Tests for dynamic weighting utilities."""
+
 from __future__ import annotations
 
 from fusion.dynamic_weighting import compute_weights

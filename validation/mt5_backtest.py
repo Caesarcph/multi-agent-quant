@@ -1,8 +1,9 @@
 """MT5-backed signal replay backtesting."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from tools import mt5_connection, mt5_tools
 from validation.backtester import run_backtest
@@ -21,10 +22,10 @@ TIMEFRAME_MINUTES = {
 
 
 def run_mt5_backtest(
-    cycles: List[Dict[str, Any]],
-    mt5_cfg: Dict[str, Any],
-    config: Dict[str, Any],
-) -> Dict[str, Any]:
+    cycles: list[dict[str, Any]],
+    mt5_cfg: dict[str, Any],
+    config: dict[str, Any],
+) -> dict[str, Any]:
     use_final = bool(config.get("use_final_signal", True))
     models = set(config.get("models") or [])
     symbols_filter = set(config.get("symbols") or [])
@@ -37,7 +38,7 @@ def run_mt5_backtest(
     if not terminal_path:
         raise RuntimeError("mt5.terminal_path is required for backtest")
 
-    results: Dict[str, Any] = {"symbols": {}, "summary": {}}
+    results: dict[str, Any] = {"symbols": {}, "summary": {}}
 
     mt5_connection.initialize(
         terminal_path=terminal_path,
@@ -54,9 +55,7 @@ def run_mt5_backtest(
             if not price_series:
                 continue
 
-            signal_list = sorted(
-                signal_list, key=lambda item: item.get("timestamp") or ""
-            )
+            signal_list = sorted(signal_list, key=lambda item: item.get("timestamp") or "")
             result = run_backtest(
                 signals=signal_list,
                 price_series=price_series,
@@ -77,8 +76,8 @@ def run_mt5_backtest(
     return results
 
 
-def _collect_signals(cycles: List[Dict[str, Any]], use_final: bool) -> List[Dict[str, Any]]:
-    collected: List[Dict[str, Any]] = []
+def _collect_signals(cycles: list[dict[str, Any]], use_final: bool) -> list[dict[str, Any]]:
+    collected: list[dict[str, Any]] = []
     for cycle in cycles:
         if use_final:
             signal = cycle.get("final_signal")
@@ -90,11 +89,11 @@ def _collect_signals(cycles: List[Dict[str, Any]], use_final: bool) -> List[Dict
 
 
 def _group_signals(
-    signals: List[Dict[str, Any]],
+    signals: list[dict[str, Any]],
     models: set[str],
     symbols_filter: set[str],
-) -> Dict[Tuple[str, str], List[Dict[str, Any]]]:
-    grouped: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
+) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for signal in signals:
         action = signal.get("action")
         if action not in {"BUY", "SELL"}:
@@ -113,9 +112,9 @@ def _group_signals(
 
 
 def _signal_time_bounds(
-    signals: List[Dict[str, Any]],
+    signals: list[dict[str, Any]],
     default_ttl: int,
-) -> Tuple[Optional[datetime], Optional[datetime]]:
+) -> tuple[datetime | None, datetime | None]:
     earliest = None
     latest = None
     for signal in signals:
@@ -136,14 +135,14 @@ def _load_price_series(
     timeframe: str,
     start: datetime,
     end: datetime,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     tf_minutes = TIMEFRAME_MINUTES.get(str(timeframe).upper(), 1)
     total_minutes = max(int((end - start).total_seconds() // 60), 1)
     count = int(total_minutes / tf_minutes) + 5
     return mt5_tools.get_rates_from(symbol, timeframe, start, count=count)
 
 
-def _aggregate_metrics(symbol_metrics: Dict[str, Any]) -> Dict[str, Any]:
+def _aggregate_metrics(symbol_metrics: dict[str, Any]) -> dict[str, Any]:
     totals = {
         "total_trades": 0,
         "net_profit": 0.0,
@@ -159,12 +158,12 @@ def _aggregate_metrics(symbol_metrics: Dict[str, Any]) -> Dict[str, Any]:
     return totals
 
 
-def _parse_time(value: Any) -> Optional[datetime]:
+def _parse_time(value: Any) -> datetime | None:
     if isinstance(value, datetime):
-        return value.astimezone(timezone.utc)
+        return value.astimezone(UTC)
     if not value:
         return None
     try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(timezone.utc)
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(UTC)
     except ValueError:
         return None

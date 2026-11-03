@@ -1,20 +1,22 @@
 """Cycle report generation utilities."""
+
 from __future__ import annotations
 
 import json
 from collections import Counter
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any
 
 
-def load_cycles(cycle_dir: Path, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+def load_cycles(cycle_dir: Path, limit: int | None = None) -> list[dict[str, Any]]:
     if not cycle_dir.exists():
         return []
     files = sorted(cycle_dir.glob("*.json"))
     if limit is not None:
         files = files[-limit:]
-    cycles: List[Dict[str, Any]] = []
+    cycles: list[dict[str, Any]] = []
     for path in files:
         try:
             cycles.append(json.loads(path.read_text(encoding="utf-8")))
@@ -23,7 +25,7 @@ def load_cycles(cycle_dir: Path, limit: Optional[int] = None) -> List[Dict[str, 
     return cycles
 
 
-def aggregate_cycles(cycles: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+def aggregate_cycles(cycles: Iterable[dict[str, Any]]) -> dict[str, Any]:
     cycles_list = list(cycles)
     action_counts: Counter[str] = Counter()
     execution_counts: Counter[str] = Counter()
@@ -34,7 +36,7 @@ def aggregate_cycles(cycles: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
     agreement_sum = 0.0
     agreement_count = 0
 
-    timestamps: List[str] = []
+    timestamps: list[str] = []
 
     for cycle in cycles_list:
         final_action = cycle.get("final_signal", {}).get("action")
@@ -88,10 +90,10 @@ def aggregate_cycles(cycles: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
 
 def render_markdown_report(
     report_date: str,
-    summary: Dict[str, Any],
-    daily_state: Optional[Dict[str, Any]] = None,
+    summary: dict[str, Any],
+    daily_state: dict[str, Any] | None = None,
 ) -> str:
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"# Daily Report ({report_date})")
     lines.append("")
 
@@ -112,7 +114,7 @@ def render_markdown_report(
         lines.append(f"- PnL today: {daily_state.get('pnl_today', 0.0)}")
         lines.append("")
 
-    def render_counter(title: str, data: Dict[str, Any]) -> None:
+    def render_counter(title: str, data: dict[str, Any]) -> None:
         lines.append(f"## {title}")
         if not data:
             lines.append("- (none)")
@@ -132,18 +134,18 @@ def render_markdown_report(
 
 def build_report_payload(
     report_date: str,
-    summary: Dict[str, Any],
-    daily_state: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    summary: dict[str, Any],
+    daily_state: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     return {
         "report_date": report_date,
-        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "summary": summary,
         "daily_state": daily_state,
     }
 
 
-def load_daily_state(path: Path) -> Optional[Dict[str, Any]]:
+def load_daily_state(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
@@ -157,10 +159,10 @@ def save_report(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def save_json_report(path: Path, payload: Dict[str, Any]) -> None:
+def save_json_report(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
 def today_utc() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d")
+    return datetime.now(UTC).strftime("%Y%m%d")

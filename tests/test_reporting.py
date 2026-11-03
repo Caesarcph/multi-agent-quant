@@ -1,7 +1,12 @@
 """Tests for reporting summary."""
+
 from __future__ import annotations
 
-from data.reporting import aggregate_cycles, build_report_payload, render_markdown_report
+from data.reporting import (
+    aggregate_cycles,
+    build_report_payload,
+    render_markdown_report,
+)
 
 
 def test_aggregate_cycles() -> None:

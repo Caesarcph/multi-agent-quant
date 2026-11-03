@@ -1,13 +1,14 @@
 """Account-level state tracking."""
+
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 
-def load_account_state(path: Path) -> Optional[Dict[str, Any]]:
+def load_account_state(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
@@ -18,9 +19,9 @@ def load_account_state(path: Path) -> Optional[Dict[str, Any]]:
 
 def update_account_state(
     path: Path,
-    account_info: Dict[str, Any],
-    account_cfg: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    account_info: dict[str, Any],
+    account_cfg: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     path.parent.mkdir(parents=True, exist_ok=True)
     state = load_account_state(path) or {}
 
@@ -72,6 +73,6 @@ def update_account_state(
                 in_mode = True
         state["capital_preservation"] = in_mode
 
-    state["timestamp"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    state["timestamp"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     path.write_text(json.dumps(state, indent=2), encoding="utf-8")
     return state

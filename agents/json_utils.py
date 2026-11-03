@@ -1,4 +1,5 @@
 """JSON parsing utilities for model output."""
+
 from __future__ import annotations
 
 import json
@@ -20,11 +21,11 @@ def _find_json_slice(text: str) -> str:
                 escape = False
             elif char == "\\":
                 escape = True
-            elif char == "\"":
+            elif char == '"':
                 in_string = False
             continue
 
-        if char == "\"":
+        if char == '"':
             in_string = True
             continue
         if char == "{":
@@ -63,11 +64,11 @@ def _strip_non_ascii_outside_strings(text: str) -> str:
                 escape = False
             elif char == "\\":
                 escape = True
-            elif char == "\"":
+            elif char == '"':
                 in_string = False
             continue
 
-        if char == "\"":
+        if char == '"':
             in_string = True
             output.append(char)
             continue

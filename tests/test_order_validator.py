@@ -1,4 +1,5 @@
 """Tests for order validation."""
+
 from __future__ import annotations
 
 from execution.order_validator import validate_signal_for_execution

@@ -1,11 +1,12 @@
 """Go-live criteria evaluation."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 
-def check_go_live(metrics: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
-    failures: List[str] = []
+def check_go_live(metrics: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+    failures: list[str] = []
 
     min_win_rate = config.get("min_win_rate")
     if min_win_rate is not None and float(metrics.get("win_rate", 0.0)) < float(min_win_rate):

@@ -1,17 +1,16 @@
 """Correlation matrix utilities."""
-from __future__ import annotations
 
-from typing import Any, Dict, List
+from __future__ import annotations
 
 import numpy as np
 
 
 def compute_correlation_matrix(
-    series_map: Dict[str, List[float]],
+    series_map: dict[str, list[float]],
     min_periods: int = 5,
-) -> Dict[str, Dict[str, float]]:
+) -> dict[str, dict[str, float]]:
     symbols = list(series_map.keys())
-    matrix: Dict[str, Dict[str, float]] = {symbol: {} for symbol in symbols}
+    matrix: dict[str, dict[str, float]] = {symbol: {} for symbol in symbols}
     if len(symbols) < 2:
         return matrix
 

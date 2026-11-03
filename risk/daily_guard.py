@@ -1,16 +1,17 @@
 """Daily risk guards."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List
+from datetime import UTC, datetime
+from typing import Any
 
 
 def check_daily_limits(
-    signal: Dict[str, Any],
-    stats: Dict[str, Any],
-    config: Dict[str, Any],
-) -> List[str]:
-    notes: List[str] = []
+    signal: dict[str, Any],
+    stats: dict[str, Any],
+    config: dict[str, Any],
+) -> list[str]:
+    notes: list[str] = []
     if signal.get("action") not in {"BUY", "SELL"}:
         return notes
 
@@ -41,8 +42,8 @@ def check_daily_limits(
     return notes
 
 
-def compute_daily_stats(trades: List[Dict[str, Any]]) -> Dict[str, Any]:
-    today = datetime.now(timezone.utc).date()
+def compute_daily_stats(trades: list[dict[str, Any]]) -> dict[str, Any]:
+    today = datetime.now(UTC).date()
     pnl_today = 0.0
     trades_today = 0
     volume_today = 0.0
@@ -52,7 +53,7 @@ def compute_daily_stats(trades: List[Dict[str, Any]]) -> Dict[str, Any]:
         if trade_time is None:
             continue
         try:
-            trade_dt = datetime.fromtimestamp(float(trade_time), tz=timezone.utc)
+            trade_dt = datetime.fromtimestamp(float(trade_time), tz=UTC)
         except (TypeError, ValueError):
             continue
         if trade_dt.date() != today:

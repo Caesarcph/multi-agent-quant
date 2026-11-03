@@ -1,4 +1,5 @@
 """Run a multi-symbol scan once."""
+
 from __future__ import annotations
 
 import argparse

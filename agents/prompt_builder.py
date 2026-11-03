@@ -1,11 +1,12 @@
 """Prompt construction helpers."""
+
 from __future__ import annotations
 
 import json
-from typing import Any, Dict
+from typing import Any
 
 
-def build_prompt(snapshot: Dict[str, Any], schema: Dict[str, Any]) -> str:
+def build_prompt(snapshot: dict[str, Any], schema: dict[str, Any]) -> str:
     snapshot_json = json.dumps(snapshot, indent=2, sort_keys=True)
     schema_json = json.dumps(schema, indent=2, sort_keys=True)
     return (

@@ -1,4 +1,5 @@
 """CLI-backed agent wrapper."""
+
 from __future__ import annotations
 
 import json
@@ -6,7 +7,7 @@ import os
 import shlex
 import subprocess
 import tempfile
-from typing import Any, Dict, List
+from typing import Any
 
 from agents.base_agent import AgentConfig, BaseAgent
 from agents.json_utils import extract_json_object
@@ -19,14 +20,14 @@ class CLICompletionAgent(BaseAgent):
     def __init__(
         self,
         config: AgentConfig,
-        schema: Dict[str, Any],
+        schema: dict[str, Any],
         system_prompt: str,
         command: str,
-        args: List[str] | None = None,
+        args: list[str] | None = None,
         timeout_seconds: int = 60,
         response_json_field: str | None = None,
-        tool_config: Dict[str, Any] | None = None,
-        mt5_config: Dict[str, Any] | None = None,
+        tool_config: dict[str, Any] | None = None,
+        mt5_config: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(config, schema, system_prompt)
         self.command = command
@@ -67,14 +68,10 @@ class CLICompletionAgent(BaseAgent):
                 check=False,
             )
         if result.returncode != 0:
-            raise RuntimeError(
-                f"CLI command failed ({result.returncode}): {result.stderr.strip()}"
-            )
+            raise RuntimeError(f"CLI command failed ({result.returncode}): {result.stderr.strip()}")
         output_text = result.stdout.strip()
         if output_file and os.path.exists(output_file):
-            output_text = (
-                open(output_file, "r", encoding="utf-8", errors="ignore").read().strip()
-            )
+            output_text = open(output_file, encoding="utf-8", errors="ignore").read().strip()
             os.remove(output_file)
 
         if self.response_json_field:
@@ -83,7 +80,7 @@ class CLICompletionAgent(BaseAgent):
 
         return output_text
 
-    def generate_signal(self, snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_signal(self, snapshot: dict[str, Any]) -> dict[str, Any]:
         prompt = build_prompt(snapshot, self.schema)
         tool_cfg = self.tool_config.get("tool_calls", {})
 

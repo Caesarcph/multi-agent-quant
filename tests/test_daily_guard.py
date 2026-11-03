@@ -1,7 +1,8 @@
 """Tests for daily guard."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from risk.daily_guard import check_daily_limits, compute_daily_stats
 
@@ -22,7 +23,7 @@ def test_daily_limits_blocks_trades() -> None:
 
 
 def test_compute_daily_stats() -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     trades = [
         {"time": now.timestamp(), "profit": 10.0, "volume": 0.5},
         {"time": now.timestamp(), "profit": -2.0, "volume": 0.25},

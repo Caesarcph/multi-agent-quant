@@ -1,11 +1,12 @@
 """Execution safety checks."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 
-def check_execution_safety(signal: Dict[str, Any], symbol_info: Dict[str, Any]) -> List[str]:
-    notes: List[str] = []
+def check_execution_safety(signal: dict[str, Any], symbol_info: dict[str, Any]) -> list[str]:
+    notes: list[str] = []
 
     if signal.get("action") in ("BUY", "SELL"):
         trade_mode = int(symbol_info.get("trade_mode", 0))
@@ -22,11 +23,11 @@ def check_execution_safety(signal: Dict[str, Any], symbol_info: Dict[str, Any]) 
 
 
 def check_liquidity(
-    symbol_info: Dict[str, Any],
-    tick: Dict[str, Any],
-    config: Dict[str, Any],
-) -> List[str]:
-    notes: List[str] = []
+    symbol_info: dict[str, Any],
+    tick: dict[str, Any],
+    config: dict[str, Any],
+) -> list[str]:
+    notes: list[str] = []
 
     if config.get("require_tick_bid_ask", True):
         bid = float(tick.get("bid", 0.0))

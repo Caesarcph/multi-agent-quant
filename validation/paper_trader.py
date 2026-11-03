@@ -1,11 +1,12 @@
 """Paper trading simulator using live MT5 ticks."""
+
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from tools import mt5_connection, mt5_tools
 
@@ -13,18 +14,18 @@ from tools import mt5_connection, mt5_tools
 @dataclass
 class PaperTradeResult:
     status: str
-    state: Dict[str, Any]
-    closed_trades: List[Dict[str, Any]]
-    notes: List[str]
+    state: dict[str, Any]
+    closed_trades: list[dict[str, Any]]
+    notes: list[str]
 
 
-def _pip_size(symbol_info: Dict[str, Any]) -> float:
+def _pip_size(symbol_info: dict[str, Any]) -> float:
     digits = int(symbol_info.get("digits", 5))
     point = float(symbol_info.get("point", 0.00001))
     return point * 10 if digits in (3, 5) else point
 
 
-def _pip_value(symbol_info: Dict[str, Any]) -> float:
+def _pip_value(symbol_info: dict[str, Any]) -> float:
     tick_size = float(symbol_info.get("trade_tick_size", 0.0))
     tick_value = float(symbol_info.get("trade_tick_value", 0.0))
     pip_size = _pip_size(symbol_info)
@@ -33,13 +34,13 @@ def _pip_value(symbol_info: Dict[str, Any]) -> float:
     return tick_value * (pip_size / tick_size)
 
 
-def _current_price(action: str, tick: Dict[str, Any]) -> float:
+def _current_price(action: str, tick: dict[str, Any]) -> float:
     if action == "BUY":
         return float(tick.get("ask", 0.0))
     return float(tick.get("bid", 0.0))
 
 
-def _clamp_volume(volume: float, symbol_info: Dict[str, Any]) -> float:
+def _clamp_volume(volume: float, symbol_info: dict[str, Any]) -> float:
     min_vol = float(symbol_info.get("volume_min", 0.0))
     max_vol = float(symbol_info.get("volume_max", 0.0))
     step = float(symbol_info.get("volume_step", 0.0))
@@ -53,7 +54,7 @@ def _clamp_volume(volume: float, symbol_info: Dict[str, Any]) -> float:
     return float(f"{volume:.4f}")
 
 
-def _position_direction(position: Dict[str, Any]) -> str:
+def _position_direction(position: dict[str, Any]) -> str:
     return str(position.get("direction", "")).upper()
 
 
@@ -62,7 +63,7 @@ def _calc_profit(
     exit_price: float,
     volume: float,
     direction: str,
-    symbol_info: Dict[str, Any],
+    symbol_info: dict[str, Any],
 ) -> float:
     pip_size = _pip_size(symbol_info)
     pip_value = _pip_value(symbol_info)
@@ -74,11 +75,11 @@ def _calc_profit(
 
 
 def _close_position(
-    position: Dict[str, Any],
+    position: dict[str, Any],
     exit_price: float,
-    symbol_info: Dict[str, Any],
+    symbol_info: dict[str, Any],
     reason: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     profit = _calc_profit(
         entry_price=float(position["entry_price"]),
         exit_price=exit_price,
@@ -95,20 +96,22 @@ def _close_position(
         "exit_price": exit_price,
         "profit": profit,
         "entry_time": position.get("entry_time"),
-        "exit_time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "exit_time": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "reason": reason,
     }
 
 
 class PaperTrader:
-    def __init__(self, state_path: Path, config: Dict[str, Any]) -> None:
+    def __init__(self, state_path: Path, config: dict[str, Any]) -> None:
         self._state_path = state_path
         self._config = config
 
-    def apply_signal(self, signal: Dict[str, Any], mt5_cfg: Dict[str, Any]) -> PaperTradeResult:
+    def apply_signal(self, signal: dict[str, Any], mt5_cfg: dict[str, Any]) -> PaperTradeResult:
         terminal_path = mt5_cfg.get("terminal_path")
         if not terminal_path:
-            return PaperTradeResult(status="error", state={}, closed_trades=[], notes=["missing_terminal_path"])
+            return PaperTradeResult(
+                status="error", state={}, closed_trades=[], notes=["missing_terminal_path"]
+            )
 
         mt5_connection.initialize(
             terminal_path=terminal_path,
@@ -117,15 +120,17 @@ class PaperTrader:
         try:
             symbol = signal.get("symbol")
             if not symbol:
-                return PaperTradeResult(status="invalid", state={}, closed_trades=[], notes=["missing_symbol"])
+                return PaperTradeResult(
+                    status="invalid", state={}, closed_trades=[], notes=["missing_symbol"]
+                )
 
             symbol_info = mt5_tools.get_symbol_info(symbol)
             tick = mt5_tools.get_symbol_tick(symbol)
             account_info = mt5_tools.get_account_info()
             state = self._load_state(account_info)
 
-            notes: List[str] = []
-            closed_trades: List[Dict[str, Any]] = []
+            notes: list[str] = []
+            closed_trades: list[dict[str, Any]] = []
 
             info_map, tick_map = self._load_symbol_context(state, symbol_info, tick)
             state, closed_trades = self._update_positions(state, info_map, tick_map)
@@ -134,17 +139,13 @@ class PaperTrader:
 
             action = signal.get("action")
             if action in {"BUY", "SELL"}:
-                state, notes, new_trades = self._handle_entry(
-                    state, signal, symbol_info, tick
-                )
+                state, notes, new_trades = self._handle_entry(state, signal, symbol_info, tick)
                 closed_trades.extend(new_trades)
                 if new_trades:
                     state.setdefault("trades", []).extend(new_trades)
 
-            state["equity"] = state["balance"] + self._unrealized_pnl(
-                state, info_map, tick_map
-            )
-            state["timestamp"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            state["equity"] = state["balance"] + self._unrealized_pnl(state, info_map, tick_map)
+            state["timestamp"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
             self._save_state(state)
 
             return PaperTradeResult(
@@ -158,13 +159,13 @@ class PaperTrader:
 
     def _handle_entry(
         self,
-        state: Dict[str, Any],
-        signal: Dict[str, Any],
-        symbol_info: Dict[str, Any],
-        tick: Dict[str, Any],
-    ) -> Tuple[Dict[str, Any], List[str], List[Dict[str, Any]]]:
-        notes: List[str] = []
-        closed_trades: List[Dict[str, Any]] = []
+        state: dict[str, Any],
+        signal: dict[str, Any],
+        symbol_info: dict[str, Any],
+        tick: dict[str, Any],
+    ) -> tuple[dict[str, Any], list[str], list[dict[str, Any]]]:
+        notes: list[str] = []
+        closed_trades: list[dict[str, Any]] = []
         symbol = signal.get("symbol")
         direction = signal.get("action")
         volume = float(signal.get("volume", 0.0))
@@ -177,8 +178,16 @@ class PaperTrader:
         volume = _clamp_volume(volume, symbol_info)
 
         positions = state.get("open_positions", [])
-        same_dir = [pos for pos in positions if pos.get("symbol") == symbol and _position_direction(pos) == direction]
-        opp_dir = [pos for pos in positions if pos.get("symbol") == symbol and _position_direction(pos) != direction]
+        same_dir = [
+            pos
+            for pos in positions
+            if pos.get("symbol") == symbol and _position_direction(pos) == direction
+        ]
+        opp_dir = [
+            pos
+            for pos in positions
+            if pos.get("symbol") == symbol and _position_direction(pos) != direction
+        ]
 
         for pos in opp_dir:
             exit_price = _current_price("BUY" if direction == "SELL" else "SELL", tick)
@@ -220,7 +229,7 @@ class PaperTrader:
                 "direction": direction,
                 "volume": volume,
                 "entry_price": price,
-                "entry_time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "entry_time": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 "stop_loss": stop_loss,
                 "take_profit": take_profit,
             }
@@ -230,12 +239,12 @@ class PaperTrader:
 
     def _load_symbol_context(
         self,
-        state: Dict[str, Any],
-        symbol_info: Dict[str, Any],
-        tick: Dict[str, Any],
-    ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
-        info_map: Dict[str, Dict[str, Any]] = {}
-        tick_map: Dict[str, Dict[str, Any]] = {}
+        state: dict[str, Any],
+        symbol_info: dict[str, Any],
+        tick: dict[str, Any],
+    ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+        info_map: dict[str, dict[str, Any]] = {}
+        tick_map: dict[str, dict[str, Any]] = {}
         symbols = {pos.get("symbol") for pos in state.get("open_positions", [])}
         if symbol_info.get("name"):
             symbols.add(symbol_info.get("name"))
@@ -253,12 +262,12 @@ class PaperTrader:
 
     def _update_positions(
         self,
-        state: Dict[str, Any],
-        info_map: Dict[str, Dict[str, Any]],
-        tick_map: Dict[str, Dict[str, Any]],
-    ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+        state: dict[str, Any],
+        info_map: dict[str, dict[str, Any]],
+        tick_map: dict[str, dict[str, Any]],
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         positions = state.get("open_positions", [])
-        closed_trades: List[Dict[str, Any]] = []
+        closed_trades: list[dict[str, Any]] = []
 
         for pos in list(positions):
             symbol = pos.get("symbol")
@@ -294,9 +303,9 @@ class PaperTrader:
 
     def _unrealized_pnl(
         self,
-        state: Dict[str, Any],
-        info_map: Dict[str, Dict[str, Any]],
-        tick_map: Dict[str, Dict[str, Any]],
+        state: dict[str, Any],
+        info_map: dict[str, dict[str, Any]],
+        tick_map: dict[str, dict[str, Any]],
     ) -> float:
         total = 0.0
         for pos in state.get("open_positions", []):
@@ -306,7 +315,9 @@ class PaperTrader:
             if not symbol_info or not tick:
                 continue
             direction = _position_direction(pos)
-            price = _current_price("SELL", tick) if direction == "BUY" else _current_price("BUY", tick)
+            price = (
+                _current_price("SELL", tick) if direction == "BUY" else _current_price("BUY", tick)
+            )
             total += _calc_profit(
                 entry_price=float(pos.get("entry_price")),
                 exit_price=price,
@@ -316,7 +327,7 @@ class PaperTrader:
             )
         return total
 
-    def _load_state(self, account_info: Dict[str, Any]) -> Dict[str, Any]:
+    def _load_state(self, account_info: dict[str, Any]) -> dict[str, Any]:
         if self._state_path.exists():
             try:
                 return json.loads(self._state_path.read_text(encoding="utf-8"))
@@ -338,6 +349,6 @@ class PaperTrader:
             "next_id": 1,
         }
 
-    def _save_state(self, state: Dict[str, Any]) -> None:
+    def _save_state(self, state: dict[str, Any]) -> None:
         self._state_path.parent.mkdir(parents=True, exist_ok=True)
         self._state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")

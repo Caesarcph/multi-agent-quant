@@ -1,4 +1,5 @@
 """Quick MT5 smoke test with basic data fetches."""
+
 from __future__ import annotations
 
 import argparse
@@ -10,8 +11,8 @@ repo_root = Path(__file__).resolve().parents[1]
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
-from tools.config_loader import load_yaml
 from tools import mt5_connection, mt5_tools
+from tools.config_loader import load_yaml
 
 
 def parse_args() -> argparse.Namespace:
@@ -48,7 +49,9 @@ def main() -> None:
         ticks = mt5_tools.get_ticks(symbol, count=args.count)
 
         print("Account:")
-        print(json.dumps({"login": account.get("login"), "balance": account.get("balance")}, indent=2))
+        print(
+            json.dumps({"login": account.get("login"), "balance": account.get("balance")}, indent=2)
+        )
         print("\nSymbol:")
         print(
             json.dumps(

@@ -1,13 +1,14 @@
 """Audit log helpers for agent outputs."""
+
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 
-def _truncate(text: Optional[str], max_chars: int) -> Optional[str]:
+def _truncate(text: str | None, max_chars: int) -> str | None:
     if text is None:
         return None
     if len(text) <= max_chars:
@@ -21,17 +22,17 @@ def log_agent_output(
     model: str,
     prompt: str,
     raw_output: str,
-    reasoning: Optional[str] = None,
+    reasoning: str | None = None,
     max_chars: int = 4000,
-    error: Optional[str] = None,
-    repair_output: Optional[str] = None,
+    error: str | None = None,
+    repair_output: str | None = None,
 ) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     path = output_dir / f"{stamp}_{agent_name}.json"
 
-    payload: Dict[str, Any] = {
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    payload: dict[str, Any] = {
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "agent": agent_name,
         "model": model,
         "prompt": _truncate(prompt, max_chars),

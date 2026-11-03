@@ -1,29 +1,30 @@
 """Lightweight backtester for signal replay."""
+
 from __future__ import annotations
 
 import bisect
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from validation.performance_tracker import compute_metrics
 
 
 @dataclass
 class BacktestResult:
-    trades: List[Dict[str, Any]]
-    metrics: Dict[str, Any]
+    trades: list[dict[str, Any]]
+    metrics: dict[str, Any]
 
 
 def run_backtest(
-    signals: List[Dict[str, Any]],
-    price_series: List[Dict[str, Any]],
+    signals: list[dict[str, Any]],
+    price_series: list[dict[str, Any]],
     initial_balance: float = 0.0,
     price_multiplier: float = 1.0,
 ) -> BacktestResult:
     prices, timestamps = _prepare_prices(price_series)
-    open_position: Optional[Dict[str, Any]] = None
-    trades: List[Dict[str, Any]] = []
+    open_position: dict[str, Any] | None = None
+    trades: list[dict[str, Any]] = []
 
     for signal in signals:
         action = signal.get("action")
@@ -55,9 +56,9 @@ def run_backtest(
     return BacktestResult(trades=trades, metrics=metrics)
 
 
-def _prepare_prices(price_series: List[Dict[str, Any]]) -> tuple[List[float], List[datetime]]:
-    prices: List[float] = []
-    timestamps: List[datetime] = []
+def _prepare_prices(price_series: list[dict[str, Any]]) -> tuple[list[float], list[datetime]]:
+    prices: list[float] = []
+    timestamps: list[datetime] = []
     for row in price_series:
         ts = _parse_time(row.get("time"))
         if ts is None:
@@ -70,7 +71,7 @@ def _prepare_prices(price_series: List[Dict[str, Any]]) -> tuple[List[float], Li
     return prices, timestamps
 
 
-def _parse_time(value: Any) -> Optional[datetime]:
+def _parse_time(value: Any) -> datetime | None:
     if isinstance(value, datetime):
         return value
     if not value:
@@ -81,7 +82,7 @@ def _parse_time(value: Any) -> Optional[datetime]:
         return None
 
 
-def _lookup_price(prices: List[float], timestamps: List[datetime], ts: datetime) -> Optional[float]:
+def _lookup_price(prices: list[float], timestamps: list[datetime], ts: datetime) -> float | None:
     if not timestamps:
         return None
     idx = bisect.bisect_right(timestamps, ts) - 1
@@ -90,7 +91,9 @@ def _lookup_price(prices: List[float], timestamps: List[datetime], ts: datetime)
     return prices[idx]
 
 
-def _close_position(position: Dict[str, Any], exit_price: float, multiplier: float) -> Dict[str, Any]:
+def _close_position(
+    position: dict[str, Any], exit_price: float, multiplier: float
+) -> dict[str, Any]:
     direction = position["direction"]
     entry_price = float(position["entry_price"])
     volume = float(position.get("volume", 1.0))

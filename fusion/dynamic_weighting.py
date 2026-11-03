@@ -1,22 +1,23 @@
 """Dynamic weighting utilities based on signal outcomes."""
+
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from validation.model_performance import evaluate_model_performance
 
 
 @dataclass
 class WeightUpdateResult:
-    weights: Dict[str, float]
-    stats: Dict[str, Any]
+    weights: dict[str, float]
+    stats: dict[str, Any]
 
 
-def load_dynamic_weights(path: Path) -> Optional[Dict[str, float]]:
+def load_dynamic_weights(path: Path) -> dict[str, float] | None:
     if not path.exists():
         return None
     try:
@@ -30,12 +31,12 @@ def load_dynamic_weights(path: Path) -> Optional[Dict[str, float]]:
 
 
 def compute_weights(
-    accuracy: Dict[str, float],
+    accuracy: dict[str, float],
     min_weight: float,
     max_weight: float,
-    default_weights: Dict[str, float],
-) -> Dict[str, float]:
-    weights: Dict[str, float] = {}
+    default_weights: dict[str, float],
+) -> dict[str, float]:
+    weights: dict[str, float] = {}
     for model, base in default_weights.items():
         score = accuracy.get(model)
         if score is None:
@@ -50,11 +51,11 @@ def compute_weights(
 
 
 def update_dynamic_weights(
-    cycles: List[Dict[str, Any]],
+    cycles: list[dict[str, Any]],
     output_path: Path,
-    mt5_cfg: Dict[str, Any],
-    config: Dict[str, Any],
-    default_weights: Dict[str, float],
+    mt5_cfg: dict[str, Any],
+    config: dict[str, Any],
+    default_weights: dict[str, float],
 ) -> WeightUpdateResult:
     stats = evaluate_model_performance(cycles, mt5_cfg, config)
     accuracy = {model: data.get("accuracy") for model, data in stats.get("by_model", {}).items()}
@@ -63,7 +64,7 @@ def update_dynamic_weights(
 
     weights = compute_weights(accuracy, min_weight, max_weight, default_weights)
     payload = {
-        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "weights": weights,
         "stats": stats,
     }
@@ -73,8 +74,8 @@ def update_dynamic_weights(
 
 
 def evaluate_signal_outcomes(
-    cycles: List[Dict[str, Any]],
-    mt5_cfg: Dict[str, Any],
-    config: Dict[str, Any],
-) -> Dict[str, Any]:
+    cycles: list[dict[str, Any]],
+    mt5_cfg: dict[str, Any],
+    config: dict[str, Any],
+) -> dict[str, Any]:
     return evaluate_model_performance(cycles, mt5_cfg, config)

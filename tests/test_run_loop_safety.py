@@ -1,4 +1,5 @@
 """Safety behaviour of scripts/run_loop.py: dry run by default and risk-based sizing input."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -32,7 +33,13 @@ def captured(run_loop, monkeypatch):
 
 DECISION = {
     "decision": "EXECUTE",
-    "order": {"symbol": "EURUSD", "action": "BUY", "volume": 5.0, "sl_price": 1.08, "tp_price": 1.10},
+    "order": {
+        "symbol": "EURUSD",
+        "action": "BUY",
+        "volume": 5.0,
+        "sl_price": 1.08,
+        "tp_price": 1.10,
+    },
 }
 
 
@@ -82,8 +89,8 @@ def test_skip_decision_never_executes(run_loop, captured):
     ("signal_risk", "per_trade", "expected"),
     [
         ({"risk_fraction_of_initial": 0.005}, 0.01, 0.005),  # throttled by guards -> keep
-        ({"risk_fraction_of_initial": 0.5}, 0.01, 0.01),     # LLM asks for 50% -> capped
-        ({}, 0.01, 0.01),                                     # missing -> per-trade budget
+        ({"risk_fraction_of_initial": 0.5}, 0.01, 0.01),  # LLM asks for 50% -> capped
+        ({}, 0.01, 0.01),  # missing -> per-trade budget
         ({"risk_fraction_of_initial": "bad"}, 0.01, 0.01),
         ({"risk_fraction_of_initial": 0.02}, None, 0.02),
     ],

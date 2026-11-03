@@ -1,17 +1,18 @@
 """DeepSeek regime analysis for ambiguous market regimes."""
+
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from deepseek.client import DeepSeekClient
 from deepseek.utils import parse_json_output
 from tools import indicators, mt5_connection, mt5_tools
 
 
-def _trim_rates(rates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    trimmed: List[Dict[str, Any]] = []
+def _trim_rates(rates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    trimmed: list[dict[str, Any]] = []
     for rate in rates:
         entry = {
             "time": rate.get("time"),
@@ -22,7 +23,7 @@ def _trim_rates(rates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "tick_volume": rate.get("tick_volume"),
         }
         if entry.get("time") is not None:
-            ts = datetime.fromtimestamp(float(entry["time"]), tz=timezone.utc)
+            ts = datetime.fromtimestamp(float(entry["time"]), tz=UTC)
             entry["time"] = ts.isoformat().replace("+00:00", "Z")
         trimmed.append(entry)
     return trimmed
@@ -30,12 +31,12 @@ def _trim_rates(rates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def build_multi_tf_data(
     symbol: str,
-    mt5_cfg: Dict[str, Any],
-    config: Dict[str, Any],
-) -> Dict[str, Any]:
+    mt5_cfg: dict[str, Any],
+    config: dict[str, Any],
+) -> dict[str, Any]:
     timeframes = config.get("timeframes", {"H1": 100, "H4": 50, "D1": 20})
     indicator_cfg = config.get("indicator_periods", {})
-    multi_tf: Dict[str, Any] = {"symbol": symbol, "timeframes": {}, "indicators": {}}
+    multi_tf: dict[str, Any] = {"symbol": symbol, "timeframes": {}, "indicators": {}}
 
     terminal_path = mt5_cfg.get("terminal_path")
     if not terminal_path:
@@ -62,12 +63,8 @@ def build_multi_tf_data(
     bb_period = int(indicator_cfg.get("bollinger_period", 20))
     bb_stddev = float(indicator_cfg.get("bollinger_stddev", 2.0))
 
-    multi_tf["indicators"]["adx"] = indicators.calculate_adx(
-        highs, lows, closes, adx_period
-    )
-    multi_tf["indicators"]["atr"] = indicators.calculate_atr(
-        highs, lows, closes, atr_period
-    )
+    multi_tf["indicators"]["adx"] = indicators.calculate_adx(highs, lows, closes, adx_period)
+    multi_tf["indicators"]["atr"] = indicators.calculate_atr(highs, lows, closes, atr_period)
     multi_tf["indicators"]["bollinger_width"] = indicators.calculate_bollinger_width(
         closes, bb_period, bb_stddev
     )
@@ -75,7 +72,7 @@ def build_multi_tf_data(
     return multi_tf
 
 
-def build_regime_prompt(symbol: str, multi_tf_data: Dict[str, Any]) -> str:
+def build_regime_prompt(symbol: str, multi_tf_data: dict[str, Any]) -> str:
     payload = {"symbol": symbol, "multi_timeframe_data": multi_tf_data}
     return (
         "You are a market regime specialist. Provide a deeper regime analysis.\n"
@@ -94,9 +91,9 @@ def build_regime_prompt(symbol: str, multi_tf_data: Dict[str, Any]) -> str:
 class DeepSeekRegimeAnalyst:
     def __init__(self, client: DeepSeekClient) -> None:
         self._client = client
-        self.last_raw_output: Optional[str] = None
+        self.last_raw_output: str | None = None
 
-    def analyze_regime(self, symbol: str, multi_tf_data: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_regime(self, symbol: str, multi_tf_data: dict[str, Any]) -> dict[str, Any]:
         prompt = build_regime_prompt(symbol, multi_tf_data)
         raw_output = self._client.analyze(prompt, task="regime_analysis")
         self.last_raw_output = raw_output

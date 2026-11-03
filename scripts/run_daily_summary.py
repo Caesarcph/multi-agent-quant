@@ -1,4 +1,5 @@
 """Generate DeepSeek daily summary report."""
+
 from __future__ import annotations
 
 import argparse
@@ -14,7 +15,6 @@ from data.reporting import (
 from deepseek.client import DeepSeekClient, load_deepseek_config
 from deepseek.daily_analyst import DeepSeekDailyAnalyst
 from tools.config_loader import load_yaml
-
 
 repo_root = Path(__file__).resolve().parents[1]
 
@@ -84,9 +84,7 @@ def _matches_date(cycle: dict, report_date: str) -> bool:
     timestamp = cycle.get("snapshot_meta", {}).get("timestamp")
     if not timestamp:
         return False
-    return timestamp.startswith(
-        f"{report_date[:4]}-{report_date[4:6]}-{report_date[6:8]}"
-    )
+    return timestamp.startswith(f"{report_date[:4]}-{report_date[4:6]}-{report_date[6:8]}")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 """Run a cycle and apply paper trading simulation."""
+
 from __future__ import annotations
 
 import argparse

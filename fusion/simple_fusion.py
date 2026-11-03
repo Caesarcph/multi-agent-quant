@@ -1,15 +1,17 @@
 """Simple majority fusion logic."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, Optional
+from collections.abc import Iterable
+from typing import Any
 
 VOTE_MAP = {"BUY": 1, "HOLD": 0, "SELL": -1}
 
 
 def fuse_signals(
-    signals: Iterable[Dict[str, Any]],
-    weights: Optional[Dict[str, float]] = None,
-) -> Dict[str, Any]:
+    signals: Iterable[dict[str, Any]],
+    weights: dict[str, float] | None = None,
+) -> dict[str, Any]:
     signal_list = list(signals)
     if not signal_list:
         raise ValueError("No signals provided for fusion.")
@@ -39,7 +41,7 @@ def fuse_signals(
     agreement_ratio = scores[best_action] / total_weight if total_weight else 0.0
     avg_confidence = weighted_confidence / total_weight if total_weight else 0.0
 
-    def pick_representative(action: str) -> Dict[str, Any]:
+    def pick_representative(action: str) -> dict[str, Any]:
         candidates = [signal for signal in signal_list if signal.get("action") == action]
         if not candidates:
             candidates = signal_list
