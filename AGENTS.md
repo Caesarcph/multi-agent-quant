@@ -11,17 +11,24 @@ Multi-agent LLM trading system: four research agents (GPT/Codex, Claude, Gemini,
 - `risk/` – trade/daily/account/exposure/correlation guards and position sizing.
 - `execution/` – MT5 order execution and safety checks.
 - `data/`, `tools/`, `deepseek/`, `validation/`, `plugins/` – state, MT5 helpers, auxiliary DeepSeek tasks, paper trading/backtests, external data.
-- `config/*.yaml` – all runtime configuration. `tests/` – pytest suite.
+- `packages/maq-core` – typed config schema (validation, hard risk limits, `MAQ_*` overrides) and structured logging.
+- `packages/maq-cli` – the `maq` command (`doctor`, `config validate`, `config show`).
+- `config/*.yaml` – all runtime configuration. `tests/` – pytest suite; `tests/fakes/` has a fake MT5 terminal and a fake OpenAI-compatible server.
+- `docs/roadmap/` – the upgrade plan; `docs/adr/` – architecture decisions.
 
-## Commands (Windows)
+## Commands
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\pip install -r requirements.txt -r requirements-dev.txt
-.\.venv\Scripts\pytest                                 # tests
-.\.venv\Scripts\ruff check .                           # lint
-.\.venv\Scripts\python scripts\run_loop.py --max-cycles 1   # one dry-run cycle
-.\.venv\Scripts\python scripts\run_loop.py --live           # send orders to the demo account
+Managed with uv; development and tests work on any OS, live trading needs Windows.
+
+```bash
+uv sync                                         # install everything
+uv run pytest                                   # tests (MT5 and LLM APIs are faked)
+uv run ruff check . && uv run ruff format .     # lint + format
+uv run mypy                                     # strict typing for packages/
+uv run maq doctor                               # is this machine ready?
+uv run maq config validate                      # config/*.yaml + MAQ_* overrides
+uv run python scripts/run_loop.py --max-cycles 1   # one dry-run cycle
+uv run python scripts/run_loop.py --live           # send orders to the demo account
 ```
 
 MT5 integration tests only run with `MT5_INTEGRATION=1` and a running terminal.
@@ -32,11 +39,14 @@ MT5 integration tests only run with `MT5_INTEGRATION=1` and a running terminal.
 - Keep `enforcement.enabled: true` in `config/risk_config.yaml`; turning it off skips the drawdown hard stop and all daily/exposure limits.
 - Lot size comes from the risk budget (`use_risk_sizing: true`). An LLM-proposed volume may only shrink it (`risk/position_sizer.py::size_order`); do not switch on `use_signal_volume`.
 - Act on `decision_signal(fused)`, never on `fused["representative_signal"]` directly: the representative can be BUY/SELL when the ensemble decided HOLD.
+- The trading department may only execute the researched symbol and direction; keep `TradingAgent._validate_decision` strict.
+- Config keys read by code must exist in the schema (`packages/maq-core/src/maq_core/config/models.py`); never raise the hard limits in `limits.py` to make a config pass.
 - Keep API keys in environment variables (`NVIDIA_API_KEY`); never commit `.env`, `logs/` or `reports/`.
 
 ## Coding Style
 
-- Python 3.10+, 4-space indentation, `snake_case` functions and variables, `CapWords` classes.
+- Python 3.11+, Ruff (100 columns), 4-space indentation, `snake_case` functions and variables, `CapWords` classes.
+- New code goes into `packages/` with strict typing; legacy top-level modules are migrated gradually.
 - YAML/JSON config keys use `lower_snake_case`.
 - Tests live in `tests/test_*.py`, mirroring module names; add a test for every bug fix.
 

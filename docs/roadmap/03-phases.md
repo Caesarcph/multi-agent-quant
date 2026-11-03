@@ -60,21 +60,24 @@
 
 | ID | 任务 | 优先级 | 工作量 | 验收标准 |
 |---|---|---|---|---|
-| P1-01 | 建 uv workspace：根 `pyproject.toml` + `packages/*`，旧代码先整体搬进 `packages/maq-legacy`，保证能跑 | P0 | 4h | `uv sync && uv run pytest` 全绿 |
-| P1-02 | Ruff 接管 lint 和格式化（替代 black），一次性修掉存量问题 | P0 | 2h | `ruff check` / `ruff format --check` 零报错 |
-| P1-03 | 类型检查：Pyrefly 或 mypy 做 CI 门禁，编辑器里用 basedpyright；老代码宽松，新包一律严格 | P1 | 3h | CI 里类型检查零错误 |
-| P1-04 | Git hooks 用 prek（兼容 pre-commit 配置）：ruff、类型检查、gitleaks（防止把 key 提交上去）、zizmor（检查 workflow 安全） | P1 | 1h | 提交时自动执行 |
-| P1-05 | GitHub Actions：Ubuntu 跑 lint / 类型 / 测试，Windows 跑 Gateway 相关测试，上报覆盖率；依赖用 `uv.lock` 带哈希锁定，action 按 commit SHA 固定 | P0 | 4h | PR 上能看到两个平台的检查结果 |
-| P1-06 | `maq-core`：领域模型（Pydantic v2）、事件定义、时钟抽象（实时时钟 / 回放时钟） | P0 | 8h | 模型有完整的单测和 JSON Schema 导出 |
-| P1-07 | 统一配置：pydantic-settings 分层加载（默认值 → 配置文件 → 环境变量 → 命令行），附带把旧的 7 个 YAML 转成新格式的迁移脚本 | P0 | 6h | 键名拼错会报出清楚的错误信息 |
-| P1-08 | structlog + OpenTelemetry 基础接线 | P1 | 3h | 本地能看到 JSON 日志和 trace |
-| P1-09 | Typer CLI 骨架：`maq doctor`（一个命令替代原来的 5 套诊断脚本）、`maq config show` | P1 | 4h | `maq doctor` 能检查 Python 版本、依赖、API key、MT5 Gateway 连通性 |
-| P1-10 | 测试基建：`FakeBroker`、LLM 调用录制回放（pytest-recording）、Hypothesis、`inline-snapshot` | P0 | 6h | CI 里不调用任何真实 API |
-| P1-11 | 文档站骨架（Zensical，中英双语）+ `docs/adr/` | P2 | 3h | 本地能预览 |
-| P1-12 | Dockerfile（多阶段构建 + uv）+ devcontainer | P1 | 3h | `docker build` 成功，镜像 < 300MB |
-| P1-13 | Renovate 自动更新依赖 | P2 | 1h | 能自动开依赖升级 PR |
+| P1-01 | ✅ 建 uv workspace：根 `pyproject.toml` + `packages/*`。**做法有调整**：旧代码没有整体搬进 `packages/maq-legacy`，而是原地留在仓库根目录（根项目是不打包的 workspace 根），这样所有 import 和 Windows 上的运行方式都不用改，新代码进 `packages/`，旧代码按阶段迁出 | P0 | 4h | `uv sync && uv run pytest` 全绿 |
+| P1-02 | ✅ Ruff 接管 lint 和格式化（替代 black），一次性修掉存量问题（行宽定为 100，和代码原本的写法一致，改动量减半） | P0 | 2h | `ruff check` / `ruff format --check` 零报错 |
+| P1-03 | ✅ 类型检查：选了 mypy（strict）做门禁，覆盖 `packages/`；老代码暂不检查 | P1 | 3h | CI 里类型检查零错误 |
+| P1-04 | ✅ Git hooks（pre-commit / prek 都能用）：ruff、mypy、配置校验、requirements 导出、基础卫生检查。密钥扫描先用 `detect-private-key`，gitleaks 待补；zizmor 已对 workflow 跑过、零问题，尚未接入 CI | P1 | 1h | 提交时自动执行 |
+| P1-05 | ✅ GitHub Actions：Ubuntu（Python 3.11 / 3.13）+ Windows（3.13，装真实 MetaTrader5 包）跑测试，覆盖率门槛 40%；lint、格式、mypy、配置校验单独一个 job；`UV_LOCKED` 强制锁文件一致；action 按 commit SHA 固定 | P0 | 4h | PR 上能看到两个平台的检查结果 |
+| P1-06 | 🟡 `maq-core`：已建好包（配置、日志）。**领域模型、事件、时钟推迟到阶段 2**，和第一个使用它们的 `Broker` 接口一起设计，见 [ADR-0006](../adr/0006-defer-domain-models.md) | P0 | 8h | 移到 P2-01 |
+| P1-07 | ✅ 统一配置：**做法有调整**，见 [ADR-0005](../adr/0005-config-validation.md)。7 个 YAML 格式不变，加严格的 schema 校验、代码里的硬上限（单笔 ≤ 2%、当日 ≤ 10%、回撤 ≤ 50%）、`MAQ_*` 环境变量覆盖；旧代码通过 `load_yaml` 透明受益；`--live` 遇到不安全设置拒绝启动 | P0 | 6h | 键名拼错会报出清楚的错误信息 |
+| P1-08 | ✅ structlog：控制台 + 可轮转的文本日志 + JSONL，每行带 `cycle` / `symbol`。OpenTelemetry 推迟到阶段 4 / 7（那时才有值得打点的 span） | P1 | 3h | 本地能看到 JSON 日志 |
+| P1-09 | ✅ `maq` 命令：`doctor`（Python、依赖、MT5、配置、实盘安全、终端路径、API key、CLI 分析师、日志目录）、`config validate`、`config show` | P1 | 4h | `maq doctor` 能指出机器缺什么 |
+| P1-10 | ✅ 测试基建：假 MT5 终端（`tests/fakes/mt5.py`）、假 OpenAI 兼容服务（`tests/fakes/llm_server.py`，走真实 SDK 和 HTTP，比录制回放更稳）、Hypothesis 性质测试。`FakeBroker` 随阶段 2 的 Broker 接口一起做 | P0 | 6h | CI 里不调用任何真实 API |
+| P1-11 | ⏭ 文档站推迟到阶段 9；`docs/adr/` 已建立（4 篇待拍板 + 2 篇已采纳） | P2 | 3h | — |
+| P1-12 | ⏭ Docker 推迟：MT5 Gateway（阶段 2）出现之前，没有能独立跑在容器里的部分 | P1 | 3h | — |
+| P1-13 | ✅ 依赖自动更新：用了 Dependabot（GitHub 自带、已支持 uv，不用额外装应用），代替 Renovate | P2 | 1h | 能自动开依赖升级 PR |
+| P1-14 | ✅ （动手时发现）**MT5 下单的 filling 模式一直传错**：`symbol_info.filling_mode` 是"允许模式"的位掩码，却被当成订单的枚举值直接用，这就是 PROGRESS.md 里 "Unsupported filling mode" 拒单的根源 | P0 | 2h | 有测试，旧代码上会失败 |
+| P1-15 | ✅ （动手时发现）**交易部可以下研究部没让下的单**：LLM 回一个别的品种、反方向的 EXECUTE 也会被执行；MODIFY 完全不校验。现在只能执行研究部决定的品种和方向，其余一律 REJECT | P0 | 2h | 同上 |
+| P1-16 | ✅ （动手时发现）模型输出里的 `NaN` / `Infinity` 能骗过所有范围检查（和 NaN 比较永远是 false），现在解析时当作空值；手数取整改成向下取整，不再因为四舍五入超出风险预算；CLI 分析师失败时临时文件泄漏 | P1 | 2h | 同上 |
 
-**M1 验收**：CI 全绿；新人 clone 下来 `uv sync` 一条命令装好；旧功能一个没丢。
+**M1 验收**：CI 全绿；新人 clone 下来 `uv sync` 一条命令装好；旧功能一个没丢。——✅ 2026-11-03 达成（CI 首次运行结果见对应 PR）。测试从 48 个增加到 162 个，覆盖率从约 23% 提高到约 41%。
 
 ---
 

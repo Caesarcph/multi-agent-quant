@@ -57,8 +57,8 @@ Research agents focus purely on market direction without needing to know contrac
 
 ## Prerequisites
 
-- **Windows** (required by MetaTrader5 Python library)
-- **Python 3.10+**
+- **Windows** for live trading (the MetaTrader5 Python package is Windows-only). Development and tests run on any OS.
+- **Python 3.11+** and [uv](https://docs.astral.sh/uv/) (`pip install uv` works too)
 - **MetaTrader 5 Terminal** installed and logged into a demo account
 - **CLI Access** to at least one of: GPT/Codex CLI, Claude CLI, Gemini CLI
 - **NVIDIA API Key** for DeepSeek V3.2 (free tier, 40 RPM)
@@ -69,9 +69,11 @@ Research agents focus purely on market direction without needing to know contrac
 git clone https://github.com/Caesarcph/multi-agent-quant.git
 cd multi-agent-quant
 
-python -m venv .venv
-.\.venv\Scripts\pip install -r requirements.txt -r requirements-dev.txt
+uv sync          # creates .venv from uv.lock
+uv run maq doctor  # checks Python, dependencies, MT5, config, API key and CLI agents
 ```
+
+Without uv: `pip install -r requirements.txt -r requirements-dev.txt` (exported from `uv.lock`).
 
 ### Environment Variables
 
@@ -88,6 +90,16 @@ Edit `config/tool_config.yaml` to set your MT5 terminal path:
 mt5:
   terminal_path: "C:\\Program Files\\MetaTrader 5 Terminal\\terminal64.exe"
 ```
+
+Or keep the file untouched and set a per-machine override (any config key works this way):
+
+```bash
+setx MAQ_TOOL__MT5__TERMINAL_PATH "C:/Program Files/MetaTrader 5 Terminal/terminal64.exe"
+```
+
+Every config file is validated at start-up (`uv run maq config validate` checks them on demand):
+unknown keys are errors, and risk settings cannot exceed hard limits (2% per trade, 10% daily loss,
+50% drawdown stop).
 
 Make sure your MT5 terminal is running and logged into a demo account before starting the system.
 
@@ -146,14 +158,13 @@ This starts a continuous loop that:
 ### Run Tests
 
 ```bash
-.\.venv\Scripts\pytest
-
-# Specific test file
-.\.venv\Scripts\pytest tests\test_fusion_engine.py -v
+uv run pytest                      # MT5 and the LLM APIs are faked, so this runs on any OS
+uv run pytest tests/test_fusion_engine.py -v
+uv run ruff check . && uv run ruff format --check . && uv run mypy
 
 # MT5 integration tests (requires running terminal)
 set MT5_INTEGRATION=1
-.\.venv\Scripts\pytest tests\test_mt5_integration.py -v
+uv run pytest tests/test_mt5_integration.py -v
 ```
 
 ## Project Structure

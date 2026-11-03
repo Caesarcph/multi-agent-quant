@@ -34,8 +34,16 @@
 | 2026-11-03 | 0 | 更新过时的 `AGENTS.md`、README 和运维文档里的实盘说明（P0-09）；测试从 31 个增加到 48 个，全部通过 | multi-agent-quant |
 | 2026-11-03 | 0 | 重写损坏的 `monitoring.py` 和告警测试，删除无法恢复的示例；修好依赖文件、异常装饰器 bug、pandas 3 兼容问题，补 LICENSE（P0-04～P0-07）。同一环境下测试从 496 通过 / 81 失败变成 600 通过 / 15 失败，剩余失败均为原有问题，已在迁移计划里逐条说明 | llm-rl-mt5-trading |
 | 2026-11-03 | 0 | README 不再宣称尚不存在的集成，加上 pre-alpha 标识；修好 `CONTRIBUTING.md`（P0-08） | llm-backtest-framework |
+| 2026-11-03 | 1 | **工程地基**：uv workspace + 锁文件；Ruff 接管 lint 和格式化；新包 strict mypy；GitHub Actions（Ubuntu + Windows）、Dependabot、pre-commit；requirements 改为从锁文件导出（P1-01～P1-05、P1-13） | multi-agent-quant |
+| 2026-11-03 | 1 | **maq-core**：7 个配置文件的严格校验、代码里的风险硬上限、`MAQ_*` 环境变量覆盖、`--live` 安全门槛；structlog 结构化日志（P1-07、P1-08） | multi-agent-quant |
+| 2026-11-03 | 1 | **maq 命令**：`maq doctor`、`maq config validate`、`maq config show`（P1-09） | multi-agent-quant |
+| 2026-11-03 | 1 | **测试基建与补测**：假 MT5 终端、假 OpenAI 兼容服务、Hypothesis；下单执行器、交易部、DeepSeek 客户端从 0% 覆盖到 74%～96%，测试 48 → 162 个（P1-10） | multi-agent-quant |
+| 2026-11-03 | 1 | **动手时修掉的真实 bug**：filling 模式位掩码误用（"Unsupported filling mode" 拒单的根源）；交易部能下研究部没让下的单；`NaN` 绕过范围检查；手数四舍五入超出风险预算；CLI 分析师临时文件泄漏（P1-14～P1-16） | multi-agent-quant |
+| 2026-11-03 | 1 | 6 篇 ADR：4 篇待你拍板（仓库结构、Agent 框架、控制台、MT5 部署），2 篇记录本轮已做的决定 | multi-agent-quant |
 
-**阶段 0 还剩**：P0-01（打 `v0-legacy` 标签）、P0-10（四篇 ADR，需要你拍板）、P0-11（采集基线，需要在 Windows + MT5 上跑一周）、P0-12（确认 DeepSeek 端点，需要 API key）、P0-13（CLI 换成原生 Schema 参数，需要在装了三个 CLI 的机器上验证）。
+**阶段 0 还剩**：P0-01（打 `v0-legacy` 标签）、P0-10（四篇 ADR 已写好建议方案，见 `docs/adr/`，等你拍板）、P0-11（采集基线，需要在 Windows + MT5 上跑一周）、P0-12（确认 DeepSeek 端点，需要 API key）、P0-13（CLI 换成原生 Schema 参数，需要在装了三个 CLI 的机器上验证）。
+
+**阶段 1 还剩**：P1-06 的领域模型（并入阶段 2）、gitleaks 和 zizmor 接入 CI、文档站和 Docker（已推迟，见上表）。
 
 ---
 

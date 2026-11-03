@@ -8,47 +8,39 @@ Multi-agent quantitative trading system using 4 LLMs (GPT/Codex, Claude, Gemini,
 
 ## Development Commands
 
+The project is managed with [uv](https://docs.astral.sh/uv/) (`uv.lock` is the source of truth).
+Development and tests work on any OS; live trading needs Windows (MetaTrader5 package).
+
 ```bash
-# Install dependencies (Windows)
-python -m venv .venv
-.\.venv\Scripts\pip install -r requirements.txt -r requirements-dev.txt
+uv sync                                   # create .venv and install everything (incl. dev tools)
 
-# Set DeepSeek API key (uses NVIDIA endpoint)
-setx NVIDIA_API_KEY "<your-key>"
+# Checks (the same ones CI runs)
+uv run pytest                             # all tests; MT5 and LLM APIs are faked
+uv run pytest tests/test_mt5_executor.py -v
+uv run ruff check . && uv run ruff format .
+uv run mypy                               # strict, for packages/
+uv run maq config validate                # config/*.yaml + MAQ_* overrides
 
-# Run tests
-.\.venv\Scripts\pytest
-
-# Lint/format
-.\.venv\Scripts\ruff check .
-.\.venv\Scripts\black .
-
-# Run single test file
-.\.venv\Scripts\pytest tests/test_fusion_engine.py -v
+# Environment
+uv run maq doctor                         # Python, deps, MT5, config, API key, CLI agents
+setx NVIDIA_API_KEY "<your-key>"          # DeepSeek via the NVIDIA endpoint (Windows)
+setx MAQ_TOOL__MT5__TERMINAL_PATH "C:/path/to/terminal64.exe"   # per-machine override
 
 # MT5 connectivity smoke test
-.\.venv\Scripts\python scripts/mt5_smoke.py --count 5
+uv run python scripts/mt5_smoke.py --count 5
 
 # === MAIN ENTRY POINT: Full Hedge Fund Loop ===
-# Dry run by default: nothing is sent to MT5
-.\.venv\Scripts\python scripts/run_loop.py
-
-# Send real orders to the (demo) account
-.\.venv\Scripts\python scripts/run_loop.py --live
-
-# Test with 1 cycle only
-.\.venv\Scripts\python scripts/run_loop.py --max-cycles 1
-
-# Change interval (default 15 min)
-.\.venv\Scripts\python scripts/run_loop.py --interval 5
+uv run python scripts/run_loop.py --max-cycles 1    # dry run: nothing is sent to MT5
+uv run python scripts/run_loop.py --live            # real orders to the (demo) account
+uv run python scripts/run_loop.py --interval 5      # change interval (default 15 min)
 
 # === Legacy/Testing Scripts ===
-# Single cycle (old mode, no trading dept)
-.\.venv\Scripts\python scripts/run_cycle.py --agents deepseek
-
-# Generate daily report
-.\.venv\Scripts\python scripts/generate_report.py
+uv run python scripts/run_cycle.py --agents deepseek    # single cycle, no trading dept
+uv run python scripts/generate_report.py
 ```
+
+pip still works: `pip install -r requirements.txt -r requirements-dev.txt` (both files are exported
+from `uv.lock` by a pre-commit hook; do not edit them by hand).
 
 ## Architecture
 
@@ -96,7 +88,7 @@ Risk Guards (trade/daily/account) → MT5 Executor
 Agents must produce JSON matching `agents/prompts/output_schema.json`. Key fields:
 - `action`: BUY | SELL | HOLD
 - `confidence`: 0.0-1.0
-- `volume`: explicit lot size (used directly by executor)
+- `volume`: proposed lot size -- advisory only: the executor sizes from the risk budget and the proposal can only shrink it
 - `risk.stop_loss_pips`, `risk.take_profit_pips`
 - `context.regime`: trending_up | trending_down | ranging | volatile
 
@@ -108,6 +100,12 @@ Agents must produce JSON matching `agents/prompts/output_schema.json`. Key field
 - `risk_config.yaml`: Per-trade, daily, and account-level limits
 - `execution_config.yaml`: Enable/disable live execution, dry_run mode
 
+All seven files are validated by the schema in `packages/maq-core/src/maq_core/config/` (unknown keys
+are errors, risk values are capped by hard limits in `limits.py`). Any key can be overridden with an
+environment variable `MAQ_<FILE>__<KEY>__<SUBKEY>`, e.g. `MAQ_RISK__TRADE_LEVEL__PER_TRADE_RISK=0.005`.
+`tools/config_loader.load_yaml` applies the same validation for legacy code. When you add a key that
+code reads, add it to the schema too.
+
 ### Enabling Live Demo Execution
 - `scripts/run_loop.py`: pass `--live`. Without it every order is a dry run, whatever the config says.
 - `scripts/run_cycle.py` / `orchestrator/cycle.py`: set `enabled: true` and `dry_run: false` in `config/execution_config.yaml`.
@@ -117,17 +115,25 @@ Agents must produce JSON matching `agents/prompts/output_schema.json`. Key field
 - `risk_config.yaml` `enforcement.enabled: true` -- with it off, the 50% drawdown stop, daily limits and exposure limits are skipped.
 - `execution_config.yaml` `use_signal_volume: false`, `use_risk_sizing: true` -- lot size comes from the risk budget and stop distance; an LLM-proposed volume can only shrink it (`risk/position_sizer.py::size_order`).
 - Downstream code must act on `fusion.fusion_engine.decision_signal(fused)`, not `fused["representative_signal"]`: the representative is one model's raw signal and can be BUY/SELL when the ensemble decided HOLD.
+- `run_loop.py --live` refuses to start when `maq_core.config.live_trading_issues()` reports anything.
+- The trading department may only EXECUTE/MODIFY the researched symbol and direction (`TradingAgent._validate_decision`); anything else becomes REJECT.
+- Lot sizes are floored to `volume_step` (`execution/mt5_executor.py::_clamp_volume`), never rounded up past the risk budget.
 
 ## Code Conventions
 
-- Python 3.10+, 4-space indentation, `snake_case` functions/variables
+- Python 3.11+, Ruff (lint + format, 100 columns), 4-space indentation, `snake_case` functions/variables
+- New code goes into workspace packages under `packages/` (src layout, strict mypy); the top-level
+  legacy packages (`agents/`, `execution/`, ...) are migrated gradually (see `docs/roadmap/`)
 - YAML/JSON config keys use `lower_snake_case`
-- Tests in `tests/test_*.py`, mirroring module names
-- MT5 integration tests require `MT5_INTEGRATION=1` env var
+- Tests in `tests/test_*.py` (package tests in `packages/*/tests/`); every bug fix gets a test
+- Test doubles: `tests/fakes/mt5.py` (fake MetaTrader5 terminal, use the `fake_mt5` fixture) and
+  `tests/fakes/llm_server.py` (OpenAI-compatible HTTP server); `tests/factories.py` has a schema-valid signal
+- MT5 integration tests require `MT5_INTEGRATION=1` and a running terminal
+- Architecture decisions are recorded in `docs/adr/`
 
 ## Critical Constraints
 
 - **Schema enforcement**: Non-conforming agent output is rejected; use `agents/json_utils.py` for robust parsing
 - **Rate limits**: DeepSeek has 40 RPM; see `deepseek/rate_limiter.py`
 - **Capital preservation**: Trading halts when equity drops to 50% of initial balance
-- **Windows-only**: MT5 Python library requires Windows; CLI agents route through `cmd.exe`
+- **Windows for live trading**: the MetaTrader5 package only exists on Windows (dependency marker); everything else, including tests, runs on any OS. CLI agents route through `cmd.exe` on Windows
