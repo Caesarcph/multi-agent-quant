@@ -7,6 +7,7 @@
 >
 > **优先级**：P0 = 不做不行；P1 = 这一阶段应该做完；P2 = 有余力再做 / 探索性质。
 > **任务 ID** 可以直接拿来当 GitHub Issue 标题前缀，验收标准就是 Issue 的完成定义。
+> ✅ 表示已完成，进度明细见 [总览 · 进度记录](README.md#进度记录)。
 
 ---
 
@@ -34,18 +35,20 @@
 | ID | 任务 | 仓库 | 优先级 | 工作量 | 验收标准 |
 |---|---|---|---|---|---|
 | P0-01 | 三个仓库各打一个 `v0-legacy` 标签，保留升级前的状态 | 全部 | P0 | 0.5h | 标签已推送，随时可以回看旧版 |
-| P0-02 | **风控默认开启**：`enforcement.enabled: true`、`enforce_safety: true`、`use_signal_volume: false`、`use_risk_sizing: true` | MAQ | P0 | 1h | 默认配置跑一轮，日志里能看到每一道风控的判定 |
-| P0-03 | **去掉写死的真下单**：删除 `scripts/run_loop.py:401-402`，改成显式的 `--live` 参数，默认 dry-run | MAQ | P0 | 1h | 不带 `--live` 时绝不调用 `order_send` |
-| P0-04 | 修复三个损坏文件：`src/core/monitoring.py` 先看本地有没有好的副本，没有就重写一个最小可用版；损坏的测试和示例直接删掉或重写 | LRM | P0 | 2–4h | `python -c "import src.core.trading_system"` 不报错 |
-| P0-05 | 修 `requirements.txt`：删掉 `sqlite3`、`asyncio`、`talib-binary` | LRM | P0 | 0.5h | 在干净的虚拟环境里 `pip install -r requirements.txt` 成功 |
-| P0-06 | 修 `handle_exceptions` 装饰器的 `UnboundLocalError`，补一个测试 | LRM | P1 | 0.5h | 新测试能复现旧 bug，修复后通过 |
-| P0-07 | 补 `LICENSE` 文件（README 里已经声明是 MIT） | LRM | P1 | 0.1h | 仓库根目录有 LICENSE |
-| P0-08 | 修 README：集成表改成 🔜 Planned、更新过时的模型名；修 `ROADMAP.md` / `CONTRIBUTING.md` 的字面量 `\n` | LBF | P1 | 0.5h | GitHub 页面显示正常，没有夸大的描述 |
-| P0-09 | 更新过时的 `AGENTS.md`，修 README 里的 `<your-username>` | MAQ | P1 | 0.5h | 文档和代码一致 |
+| P0-02 | ✅ **风控默认开启**：`enforcement.enabled: true`、`enforce_safety: true`、`use_signal_volume: false`、`use_risk_sizing: true` | MAQ | P0 | 1h | 默认配置跑一轮，日志里能看到每一道风控的判定 |
+| P0-03 | ✅ **去掉写死的真下单**：删除 `scripts/run_loop.py:401-402`，改成显式的 `--live` 参数，默认 dry-run | MAQ | P0 | 1h | 不带 `--live` 时绝不调用 `order_send` |
+| P0-04 | ✅ 修复三个损坏文件：`src/core/monitoring.py` 先看本地有没有好的副本，没有就重写一个最小可用版；损坏的测试和示例直接删掉或重写 | LRM | P0 | 2–4h | `python -c "import src.core.trading_system"` 不报错 |
+| P0-05 | ✅ 修 `requirements.txt`：删掉 `sqlite3`、`asyncio`、`talib-binary` | LRM | P0 | 0.5h | 在干净的虚拟环境里 `pip install -r requirements.txt` 成功 |
+| P0-06 | ✅ 修 `handle_exceptions` 装饰器的 `UnboundLocalError`，补一个测试 | LRM | P1 | 0.5h | 新测试能复现旧 bug，修复后通过 |
+| P0-07 | ✅ 补 `LICENSE` 文件（README 里已经声明是 MIT） | LRM | P1 | 0.1h | 仓库根目录有 LICENSE |
+| P0-08 | ✅ 修 README：集成表改成 🔜 Planned、更新过时的模型名；修 `ROADMAP.md` / `CONTRIBUTING.md` 的字面量 `\n` | LBF | P1 | 0.5h | GitHub 页面显示正常，没有夸大的描述 |
+| P0-09 | ✅ 更新过时的 `AGENTS.md`，修 README 里的 `<your-username>` | MAQ | P1 | 0.5h | 文档和代码一致 |
 | P0-10 | **写 4 篇 ADR（架构决策记录）**：仓库结构、Agent 框架、UI 技术栈、MT5 部署方式 | MAQ | P0 | 2–3h | `docs/adr/` 下有 4 篇 ADR，每篇写清"背景 / 选项 / 决定 / 后果" |
 | P0-11 | **采集升级前基线**：用修好风控的旧系统在模拟盘跑满一周，记录每轮耗时、模型失败率、交易次数、盈亏 | MAQ | P1 | 持续 1 周 | 一份基线报告，升级后拿来做对比 |
 | P0-12 | **确认 DeepSeek 端点还能用**：多家托管商已经下线 V3.2，DeepSeek 官方旧模型名也已停用。把模型 ID 从代码里抽到配置，准备切到 V4（Flash 做快速档、Pro 做主力档） | MAQ | P0 | 1h | 端点可用性有结论；换模型只改一行配置 |
 | P0-13 | **快速见效**：三个 CLI 都换成原生的 Schema 参数（`codex exec --output-schema`、`claude -p --output-format json --json-schema`、`gemini -p --output-format json`，以各 CLI 当前版本的帮助文档为准），先把 JSON 解析失败率压下来 | MAQ | P1 | 2h | 解析失败率明显低于基线 |
+| P0-14 | ✅ **让融合结果真正生效**（动手时发现的新问题）：`run_loop.py` 和 `cycle.py` 改用 `decision_signal(fused)`，不再直接拿 `representative_signal` 下单；顺手修掉 `cycle.py` 开启风控后丢弃挑战 Agent 结果的问题 | MAQ | P0 | 2h | 两多两空、行情判断不一致时，最终信号一定是 HOLD（有测试） |
+| P0-15 | ✅ **风险预算真正用于定手数**：仓位计算支持"止损给的是价格"的情况；主循环把风控调整后的风险比例传给执行层；LLM 提议的手数只能调小、不能调大 | MAQ | P0 | 2h | 让 LLM 要 10 手，最终手数仍等于风险预算算出来的值（有测试） |
 
 **M0 验收**：旧系统在默认配置下"不会闯祸"；四个关键决策已经拍板。
 

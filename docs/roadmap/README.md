@@ -24,6 +24,21 @@
 
 ---
 
+## 进度记录
+
+| 日期 | 阶段 | 完成了什么 | 仓库 |
+|---|---|---|---|
+| 2026-11-03 | 0 | **风控默认生效**：`enforcement.enabled`、`enforce_safety` 打开；手数改为按风险预算计算，LLM 提议的手数只能调小（P0-02、P0-15） | multi-agent-quant |
+| 2026-11-03 | 0 | **去掉写死的真下单**：主循环默认 dry run，只有加 `--live` 才发单（P0-03） | multi-agent-quant |
+| 2026-11-03 | 0 | **修复融合结果被绕过的 bug**：此前"两多两空"或"3/4 行情判断不一致"时融合结果是 HOLD，但系统仍按某个模型的 BUY 下单（P0-14） | multi-agent-quant |
+| 2026-11-03 | 0 | 更新过时的 `AGENTS.md`、README 和运维文档里的实盘说明（P0-09）；测试从 31 个增加到 48 个，全部通过 | multi-agent-quant |
+| 2026-11-03 | 0 | 重写损坏的 `monitoring.py` 和告警测试，删除无法恢复的示例；修好依赖文件、异常装饰器 bug、pandas 3 兼容问题，补 LICENSE（P0-04～P0-07）。同一环境下测试从 496 通过 / 81 失败变成 600 通过 / 15 失败，剩余失败均为原有问题，已在迁移计划里逐条说明 | llm-rl-mt5-trading |
+| 2026-11-03 | 0 | README 不再宣称尚不存在的集成，加上 pre-alpha 标识；修好 `CONTRIBUTING.md`（P0-08） | llm-backtest-framework |
+
+**阶段 0 还剩**：P0-01（打 `v0-legacy` 标签）、P0-10（四篇 ADR，需要你拍板）、P0-11（采集基线，需要在 Windows + MT5 上跑一周）、P0-12（确认 DeepSeek 端点，需要 API key）、P0-13（CLI 换成原生 Schema 参数，需要在装了三个 CLI 的机器上验证）。
+
+---
+
 ## 文档导航
 
 | 文档 | 内容 |

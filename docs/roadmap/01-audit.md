@@ -54,19 +54,20 @@
 | 1 | 🔴 | 默认配置下风控不生效 | `config/risk_config.yaml` 中 `enforcement.enabled: false`、`capital_preservation.enabled: false`；`config/execution_config.yaml` 中 `enforce_safety: false` | README 和 CLAUDE.md 宣称的"三层风控 + 50% 回撤硬止损"实际上没在执行 |
 | 2 | 🔴 | 下单手数由 LLM 决定 | `use_signal_volume: true`，模型输出的 `volume` 原样下单 | 模型一旦"幻觉"出 10 手，就真的下 10 手 |
 | 3 | 🔴 | 主循环强制真下单 | `scripts/run_loop.py:401-402` 写死了 `enabled = True`、`dry_run = False` | 没法安全地演练或调试 |
-| 4 | 🟠 | 研究员走 CLI 子进程（codex / claude / gemini） | `agents/cli_agent.py`，单次超时 180 秒，Windows 下还要绕 `cmd.exe` | 慢、容易挂、拿不到 token 用量和成本，也用不上原生结构化输出 |
-| 5 | 🟠 | 全程串行 | `run_loop.py` 对最多 20 个品种 × 4 个模型逐个调用 | 一轮可能要几十分钟，15 分钟的周期根本跟不上 |
-| 6 | 🟠 | MT5 连接反复初始化 / 关闭 | `run_loop.py` 扫描、研究、交易各自 `initialize()` + `shutdown()` | 又慢又容易出状态问题（MT5 库本身是进程级单例） |
-| 7 | 🟠 | 工具调用协议是手搓的，JSON 靠正则提取 + 让模型自己修 | `agents/tool_loop.py`、`agents/json_utils.py`、DeepSeek 的 repair 流程 | 各家 API 早就原生支持 function calling 和 JSON Schema 约束解码了 |
-| 8 | 🟠 | API 调用没有重试和退避 | `deepseek/client.py` | 偶发一个 429 / 5xx，模型就直接"休假" |
-| 9 | 🟡 | 两套主流程并存 | `scripts/run_loop.py`（673 行）和 `orchestrator/cycle.py`（308 行）逻辑大量重复 | 改一处漏一处 |
-| 10 | 🟡 | 不是一个可安装的包 | 脚本里到处 `sys.path.insert`，没有 `pyproject.toml` | 难测试、难复用 |
-| 11 | 🟡 | 7 个 YAML 配置没有校验 | `tools/config_loader.py` 直接 `yaml.safe_load` | 键名拼错会静默失效 |
-| 12 | 🟡 | 依赖偏老 | `openai==1.40.2`，`httpx==0.27.2`（当初为了绕开 `proxies` 报错锁死的） | 新特性用不上，安全补丁也跟不上 |
-| 13 | 🟡 | 状态散在各种 JSON 文件里 | `logs/*.json` + 可选 SQLite | 并发写、回放、分析都不方便 |
-| 14 | 🟡 | 文档和代码脱节 | `AGENTS.md` 还写着"仓库目前只有文档"；README 的 `git clone` 地址里留着 `<your-username>` | 新人和 AI 编程助手都会被误导 |
-| 15 | 🟢 | 1,005 个 lint 问题 | 大部分是老式类型注解（`Dict`、`Optional`） | 一次 `ruff --fix` 就能清掉大半 |
-| 16 | 🟢 | Schema 里把模型名写死成枚举 | `agents/prompts/output_schema.json`：`gpt \| claude \| gemini \| deepseek` | 想换模型、加模型都得改 Schema |
+| 4 | 🔴 | **融合结果被绕过**（第 0 阶段动手时发现） | `scripts/run_loop.py` 和 `orchestrator/cycle.py` 拿 `fused["representative_signal"]`（某一个模型的原始信号）去下单，而不是融合后的决定。两多两空、或者"3/4 行情判断一致"没通过时，融合结果是 HOLD，但代表信号可能是 BUY，系统照样下单 | "3/4 一致才交易"这个核心设计实际上没起作用 |
+| 5 | 🟠 | 研究员走 CLI 子进程（codex / claude / gemini） | `agents/cli_agent.py`，单次超时 180 秒，Windows 下还要绕 `cmd.exe` | 慢、容易挂、拿不到 token 用量和成本，也用不上原生结构化输出 |
+| 6 | 🟠 | 全程串行 | `run_loop.py` 对最多 20 个品种 × 4 个模型逐个调用 | 一轮可能要几十分钟，15 分钟的周期根本跟不上 |
+| 7 | 🟠 | MT5 连接反复初始化 / 关闭 | `run_loop.py` 扫描、研究、交易各自 `initialize()` + `shutdown()` | 又慢又容易出状态问题（MT5 库本身是进程级单例） |
+| 8 | 🟠 | 工具调用协议是手搓的，JSON 靠正则提取 + 让模型自己修 | `agents/tool_loop.py`、`agents/json_utils.py`、DeepSeek 的 repair 流程 | 各家 API 早就原生支持 function calling 和 JSON Schema 约束解码了 |
+| 9 | 🟠 | API 调用没有重试和退避 | `deepseek/client.py` | 偶发一个 429 / 5xx，模型就直接"休假" |
+| 10 | 🟡 | 两套主流程并存 | `scripts/run_loop.py`（673 行）和 `orchestrator/cycle.py`（308 行）逻辑大量重复 | 改一处漏一处 |
+| 11 | 🟡 | 不是一个可安装的包 | 脚本里到处 `sys.path.insert`，没有 `pyproject.toml` | 难测试、难复用 |
+| 12 | 🟡 | 7 个 YAML 配置没有校验 | `tools/config_loader.py` 直接 `yaml.safe_load` | 键名拼错会静默失效 |
+| 13 | 🟡 | 依赖偏老 | `openai==1.40.2`，`httpx==0.27.2`（当初为了绕开 `proxies` 报错锁死的） | 新特性用不上，安全补丁也跟不上 |
+| 14 | 🟡 | 状态散在各种 JSON 文件里 | `logs/*.json` + 可选 SQLite | 并发写、回放、分析都不方便 |
+| 15 | 🟡 | 文档和代码脱节 | `AGENTS.md` 还写着"仓库目前只有文档"；README 的 `git clone` 地址里留着 `<your-username>` | 新人和 AI 编程助手都会被误导 |
+| 16 | 🟢 | 1,005 个 lint 问题 | 大部分是老式类型注解（`Dict`、`Optional`） | 一次 `ruff --fix` 就能清掉大半 |
+| 17 | 🟢 | Schema 里把模型名写死成枚举 | `agents/prompts/output_schema.json`：`gpt \| claude \| gemini \| deepseek` | 想换模型、加模型都得改 Schema |
 
 ### 模型层面的新情况（2026 年下半年）
 
@@ -111,6 +112,7 @@
 | # | 级别 | 问题 | 证据 |
 |---|---|---|---|
 | 1 | 🔴 | **主程序一启动就崩** | `src/core/monitoring.py` 从第 60 行起内容是乱码（字符顺序被打乱，连类名都坏了），而 `src/core/trading_system.py:27` 在模块顶层就 import 了它，所以 `python main.py` 会直接报 `SyntaxError` |
+| 1b | 🔴 | **修好上一条也起不来** | `TradingSystem` 要读取十几个配置段（`alert`、`ea`、`fund_management`、`risk_control`、`strategies`、`system`、`trading_hours` 等），`SystemConfig` 里一个都没定义，`initialize()` 必然报错（第 0 阶段动手时发现） |
 | 2 | 🔴 | 另外两个文件整体损坏 | `tests/test_alert_system.py`、`examples/backtest_monte_carlo_integration.py` |
 | 3 | 🔴 | **依赖装不上** | `requirements.txt` 里列了 `sqlite3` 和 `asyncio`（都是标准库），PyPI 上根本没有 `sqlite3`，`pip install -r` 直接失败；`talib-binary` 只有 cp34–cp37 的 wheel |
 | 4 | 🔴 | 异常处理装饰器自身有 bug | `src/core/exceptions.py:296`：`wrapper` 里的局部 `from .logging import log_error` 遮住了同名参数，结果一旦捕获到异常，装饰器自己先抛 `UnboundLocalError`，原始错误被吞掉 |
@@ -118,7 +120,7 @@
 | 6 | 🟠 | 用本地 Llama 3.2 1B 做市场分析 | `src/llm/llama_model.py`。1B 模型的推理能力不够做这件事，而为它引入的 llama-cpp + torch + transformers + langchain 依赖又非常重 |
 | 7 | 🟠 | RL 用来"优化策略权重"，但没有严格的样本外验证 | `src/rl/*`、`src/strategies/weight_optimizer.py`，过拟合风险很高 |
 | 8 | 🟠 | 和 multi-agent-quant 大面积重复 | MT5 连接、风控、回测、报告、LLM 封装两边各写了一套 |
-| 9 | 🟡 | 测试里引用了未定义的名字 | `tests/test_ea31337_bridge.py:466` 的 `logging`；`tests/test_risk_manager_agent.py` 的 `PortfolioRisk` |
+| 9 | 🟡 | 测试里引用了未定义的名字 | `tests/test_ea31337_bridge.py:466` 少了 `import logging`；`tests/test_risk_manager_agent.py` 里的 `PortfolioRisk`、`monitor_portfolio_risk()` 等**根本没有实现**，测试是对着不存在的功能写的 |
 | 10 | 🟡 | 单机场景硬依赖 Redis | `src/data/cache.py` |
 | 11 | 🟡 | 诊断 / 安装脚本有 5 套 | `install.py`、`validate_setup.py`、`diagnose.py`、`src/utils/diagnostic_tool.py`、`src/core/environment.py` |
 | 12 | 🟡 | 4 处裸 `except:` | `trade_recorder.py`、`cache.py`、`mt5_connection.py` 等 |
