@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -30,18 +31,29 @@ def _pip_size(point: float, digits: int) -> float:
     return point
 
 
+def _floor_to_step(volume: float, step: float) -> float:
+    # The epsilon keeps exact multiples (0.3 / 0.1 = 2.9999999999999996) on their step.
+    return math.floor(volume / step + 1e-9) * step
+
+
 def _clamp_volume(volume: float, symbol_info: dict[str, Any]) -> float:
+    """Clamp to the symbol's [volume_min, volume_max] on its volume_step grid.
+
+    Rounds *down* to the grid so a risk-sized volume never grows past its budget
+    (or past volume_max when that is not on the grid). volume_min still wins: a
+    position can never be smaller than the broker's minimum lot.
+    """
     min_vol = float(symbol_info.get("volume_min", 0.0))
     max_vol = float(symbol_info.get("volume_max", 0.0))
     step = float(symbol_info.get("volume_step", 0.0))
 
-    volume = max(min_vol, volume)
-    if max_vol > 0:
-        volume = min(max_vol, volume)
     if step > 0:
-        volume = round(volume / step) * step
-        volume = max(min_vol, volume)
-    return float(f"{volume:.4f}")
+        volume = _floor_to_step(volume, step)
+    if max_vol > 0:
+        upper = _floor_to_step(max_vol, step) if step > 0 else max_vol
+        volume = min(volume, upper if upper >= min_vol else max_vol)
+    volume = max(min_vol, volume)
+    return round(volume, 8)
 
 
 def _current_price(action: str, tick: dict[str, Any]) -> float:
