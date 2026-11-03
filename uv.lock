@@ -12,6 +12,7 @@ members = [
     "maq-brokers",
     "maq-cli",
     "maq-core",
+    "maq-engine",
     "maq-risk",
     "multi-agent-quant",
 ]
@@ -716,6 +717,23 @@ requires-dist = [
 ]
 
 [[package]]
+name = "maq-engine"
+version = "0.1.0"
+source = { editable = "packages/maq-engine" }
+dependencies = [
+    { name = "maq-brokers" },
+    { name = "maq-core" },
+    { name = "maq-risk" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "maq-brokers", editable = "packages/maq-brokers" },
+    { name = "maq-core", editable = "packages/maq-core" },
+    { name = "maq-risk", editable = "packages/maq-risk" },
+]
+
+[[package]]
 name = "maq-risk"
 version = "0.1.0"
 source = { editable = "packages/maq-risk" }
@@ -771,6 +789,7 @@ dependencies = [
     { name = "maq-brokers" },
     { name = "maq-cli" },
     { name = "maq-core" },
+    { name = "maq-engine" },
     { name = "maq-risk" },
     { name = "metatrader5", marker = "sys_platform == 'win32'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -796,6 +815,7 @@ requires-dist = [
     { name = "maq-brokers", editable = "packages/maq-brokers" },
     { name = "maq-cli", editable = "packages/maq-cli" },
     { name = "maq-core", editable = "packages/maq-core" },
+    { name = "maq-engine", editable = "packages/maq-engine" },
     { name = "maq-risk", editable = "packages/maq-risk" },
     { name = "metatrader5", marker = "sys_platform == 'win32'", specifier = ">=5.0.5509" },
     { name = "numpy", specifier = ">=2.2" },

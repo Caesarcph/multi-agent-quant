@@ -1,0 +1,21 @@
+[project]
+name = "maq-engine"
+version = "0.1.0"
+description = "Engine for multi-agent-quant: hash-chained event log, order manager, reconciliation, execution pipeline."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "maq-core",
+    "maq-brokers",
+    "maq-risk",
+]
+
+[tool.uv.sources]
+maq-core = { workspace = true }
+maq-brokers = { workspace = true }
+maq-risk = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.11,<0.14"]
+build-backend = "uv_build"

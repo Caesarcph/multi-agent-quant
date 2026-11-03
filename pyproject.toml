@@ -17,6 +17,7 @@ dependencies = [
     "maq-cli",
     "maq-brokers",
     "maq-risk",
+    "maq-engine",
 ]
 
 [dependency-groups]
@@ -43,6 +44,7 @@ maq-core = { workspace = true }
 maq-cli = { workspace = true }
 maq-brokers = { workspace = true }
 maq-risk = { workspace = true }
+maq-engine = { workspace = true }
 
 # --------------------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
@@ -119,6 +121,7 @@ known-first-party = [
     "maq_cli",
     "maq_brokers",
     "maq_risk",
+    "maq_engine",
     "agents",
     "data",
     "deepseek",
@@ -139,5 +142,17 @@ known-first-party = [
 python_version = "3.11"
 strict = true
 plugins = ["pydantic.mypy"]
-files = ["packages/maq-core/src", "packages/maq-cli/src", "packages/maq-brokers/src", "packages/maq-risk/src"]
-mypy_path = ["packages/maq-core/src", "packages/maq-cli/src", "packages/maq-brokers/src", "packages/maq-risk/src"]
+files = [
+    "packages/maq-core/src",
+    "packages/maq-cli/src",
+    "packages/maq-brokers/src",
+    "packages/maq-risk/src",
+    "packages/maq-engine/src",
+]
+mypy_path = [
+    "packages/maq-core/src",
+    "packages/maq-cli/src",
+    "packages/maq-brokers/src",
+    "packages/maq-risk/src",
+    "packages/maq-engine/src",
+]
