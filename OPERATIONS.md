@@ -76,6 +76,34 @@ Generate daily report:
 .\.venv\Scripts\python scripts\generate_report.py
 ```
 
+## Kill Switch
+
+One state file stops trading everywhere: the legacy loop checks it at the start of every cycle
+and again right before sending an order; the new execution pipeline checks it before every order.
+
+```powershell
+uv run maq kill-switch engage --mode halt_new --reason "news spike"   # no new positions
+uv run maq kill-switch engage --mode flatten --reason "flash crash"   # also close our positions
+uv run maq kill-switch status                                         # exit code 3 while engaged
+uv run maq kill-switch release
+```
+
+- The file is `logs/kill_switch.json`, or `MAQ_KILL_SWITCH_FILE` if set (set it to the same path
+  for every process). A file that exists but cannot be read counts as engaged.
+- `flatten` closes only positions carrying this system's magic number (`execution_config.yaml`),
+  once per engagement; without `--live` the close requests are only logged.
+
+## Audit Log
+
+The new engine writes every decision, order and fill to `logs/events.db`, each record chained to
+the previous one by a SHA-256 hash.
+
+```powershell
+uv run maq audit verify                 # recompute the chain; exit 1 if anything was altered
+uv run maq audit head                   # print "<seq> <hash>"; keep it somewhere else
+uv run maq audit verify --anchor <hash> # also catches records cut off the end
+```
+
 ## Operational Toggles
 
 - Agent output audit: `config/tool_config.yaml` -> `audit.enabled`

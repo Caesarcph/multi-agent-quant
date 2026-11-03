@@ -247,3 +247,18 @@ def test_audit_missing_database(tmp_path: Path) -> None:
         result = runner.invoke(app, [*command, "--db", str(tmp_path / "nope.db")])
         assert result.exit_code == 2
         assert "does not exist" in result.output
+
+
+def test_doctor_warns_while_the_kill_switch_is_engaged(tmp_path: Path) -> None:
+    from maq_cli.doctor import check_kill_switch
+    from maq_risk.kill_switch import KillSwitch
+
+    state_file = tmp_path / "kill.json"
+    environ = {"MAQ_KILL_SWITCH_FILE": str(state_file)}
+    [ok] = run_checks(REPO_CONFIG, environ=environ, checks=[check_kill_switch])
+    assert ok.status is Status.OK
+
+    KillSwitch(state_file).engage(reason="maintenance")
+    [warn] = run_checks(REPO_CONFIG, environ=environ, checks=[check_kill_switch])
+    assert warn.status is Status.WARN
+    assert "maintenance" in warn.summary

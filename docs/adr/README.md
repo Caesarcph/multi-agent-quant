@@ -10,6 +10,8 @@
 | [0004](0004-mt5-deployment.md) | MT5 部署：Windows VPS 跑 Gateway，开发和 CI 用 Wine | ✅ 已采纳（2026-11-03） |
 | [0005](0005-config-validation.md) | 配置：保留 7 个 YAML，加类型校验和环境变量覆盖 | ✅ 已采纳（2026-11-03） |
 | [0006](0006-defer-domain-models.md) | 领域模型推迟到阶段 2，和 Broker 接口一起设计 | ✅ 已采纳（2026-11-03） |
+| [0007](0007-gateway-and-testing-without-windows.md) | MT5 Gateway 用 REST + 长轮询；没有 Windows 时用模拟交易服务器验证 | ✅ 已采纳（2026-11-03） |
+| [0008](0008-risk-kernel-rules.md) | 风控内核的几条硬规则（止损必填、低于最小手数不做、按 min(余额, 净值) 定手数……） | ✅ 已采纳（2026-11-03） |
 
 ## 怎么写一篇新的 ADR
 

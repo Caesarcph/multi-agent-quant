@@ -18,6 +18,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from maq_core.config import AppConfig, ConfigError, live_trading_issues, load_config
+from maq_risk.kill_switch import KillSwitch, default_path
 
 
 class Status(StrEnum):
@@ -173,6 +174,21 @@ def check_log_dir(ctx: DoctorContext) -> CheckResult:
     return CheckResult("Log directory", Status.OK, str(directory))
 
 
+def check_kill_switch(ctx: DoctorContext) -> CheckResult:
+    path = default_path(dict(ctx.environ))
+    if not path.is_absolute():
+        path = ctx.config_dir.parent / path
+    state = KillSwitch(path).state()
+    if state is None:
+        return CheckResult("Kill switch", Status.OK, "not engaged")
+    return CheckResult(
+        "Kill switch",
+        Status.WARN,
+        f"engaged ({state.mode}) since {state.engaged_at:%Y-%m-%d %H:%M} UTC: {state.reason}",
+        ["release it with `maq kill-switch release` once it is safe to trade"],
+    )
+
+
 CHECKS: list[Check] = [
     check_python,
     check_dependencies,
@@ -183,6 +199,7 @@ CHECKS: list[Check] = [
     check_api_key,
     check_cli_agents,
     check_log_dir,
+    check_kill_switch,
 ]
 
 

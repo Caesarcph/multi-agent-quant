@@ -55,6 +55,28 @@ Research agents focus purely on market direction without needing to know contrac
 - **Structured Output**: All agents produce JSON conforming to a strict schema; non-conforming output is rejected
 - **Full Audit Trail**: Every cycle, signal, fusion result, and execution is logged
 
+## New Platform Packages (2026 upgrade)
+
+The upgrade builds a new core next to the legacy loop, in `packages/` and `services/`.
+It runs and is tested on any OS; the legacy loop above still does the trading until phase 4
+moves it over.
+
+| Package | What it does |
+|---|---|
+| `maq-core` | Domain types (symbol spec, ticks, bars, positions, orders), event registry, clock, typed config, logging |
+| `maq-brokers` | One async `Broker` interface; `PaperBroker` (local matching with costs, swap, margin, stop-out); `Mt5Broker` (MetaTrader 5 adapter); `Mt5GatewayBroker` (HTTP client); a contract test suite every broker passes |
+| `maq-risk` | The deterministic risk kernel: 20+ pre-trade checks, position sizing, circuit breakers, kill switch, live-trading mandate |
+| `maq-engine` | Hash-chained event log (SQLite), order manager (persist before send, idempotency keys, reconciliation), execution pipeline |
+| `services/mt5-gateway` | A thin FastAPI service that owns one MT5 terminal on Windows, so everything else can run elsewhere |
+| `maq-cli` | `maq doctor`, `maq config validate/show`, `maq kill-switch engage/release/status`, `maq audit verify/head` |
+
+```bash
+uv run maq kill-switch engage --mode halt_new --reason "news spike"   # stop new positions
+uv run maq kill-switch engage --mode flatten --reason "flash crash"   # ...and close ours
+uv run maq kill-switch release
+uv run maq audit verify --db logs/events.db                           # was the log tampered with?
+```
+
 ## Prerequisites
 
 - **Windows** for live trading (the MetaTrader5 Python package is Windows-only). Development and tests run on any OS.
@@ -162,6 +184,9 @@ uv run pytest                      # MT5 and the LLM APIs are faked, so this run
 uv run pytest tests/test_fusion_engine.py -v
 uv run ruff check . && uv run ruff format --check . && uv run mypy
 
+# Property tests with 100,000 examples each instead of 200
+HYPOTHESIS_PROFILE=thorough uv run pytest packages/maq-risk/tests/test_risk_properties.py
+
 # MT5 integration tests (requires running terminal)
 set MT5_INTEGRATION=1
 uv run pytest tests/test_mt5_integration.py -v
@@ -171,6 +196,12 @@ uv run pytest tests/test_mt5_integration.py -v
 
 ```
 multi-agent-quant/
+├── packages/                   # New platform packages (strict typing, see above)
+│   ├── maq-core/  maq-brokers/  maq-risk/  maq-engine/  maq-cli/
+├── services/
+│   └── mt5-gateway/            # MT5 Gateway (runs on Windows next to the terminal)
+├── docs/                       # Upgrade plan (docs/roadmap) and decisions (docs/adr)
+│
 ├── agents/                     # LLM agent wrappers
 │   ├── cli_agent.py            #   CLI wrapper (GPT/Claude/Gemini)
 │   ├── deepseek_agent.py       #   DeepSeek API wrapper
@@ -237,7 +268,7 @@ multi-agent-quant/
 │   ├── mt5_smoke.py            #   MT5 connectivity test
 │   └── generate_report.py      #   Performance reports
 │
-└── tests/                      # Test suite (16 modules)
+└── tests/                      # Legacy test suite; fakes for MT5 (incl. a simulated trade server) and LLM APIs
     ├── test_fusion_engine.py
     ├── test_daily_guard.py
     ├── test_account_guard.py
@@ -253,17 +284,25 @@ All configuration is in YAML files under `config/`. Key settings:
 
 ```yaml
 trade_level:
-  per_trade_risk: 0.01          # 1% of initial balance per trade
-  max_position_size: 0.05       # 5% max single position
+  per_trade_risk: 0.01          # 1% of the balance at risk per trade (hard cap 2%)
+  require_stop_loss: true
 
 daily_level:
-  daily_loss_limit: 0.03        # Stop trading at 3% daily loss
+  daily_loss_limit: 0.03        # stop at a 3% loss vs. the day's starting balance (hard cap 10%)
   max_daily_trades: 10
 
 account_level:
-  max_drawdown: 0.50            # HARD STOP at 50% drawdown
+  max_drawdown: 0.50            # HARD STOP at 50% drawdown from the initial balance
   max_concurrent_positions: 5
+
+pre_trade:                      # read by the new risk kernel (packages/maq-risk)
+  min_reward_risk: 1.0
+  signal_ttl_seconds: 900
+  news_blackout_minutes: 30
 ```
+
+Values looser than the hard limits in `packages/maq-core/src/maq_core/config/limits.py` are
+rejected at startup (`uv run maq config validate`).
 
 ### Fusion Engine (`fusion_config.yaml`)
 

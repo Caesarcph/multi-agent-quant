@@ -20,9 +20,12 @@ uv run pytest tests/test_mt5_executor.py -v
 uv run ruff check . && uv run ruff format .
 uv run mypy                               # strict, for packages/
 uv run maq config validate                # config/*.yaml + MAQ_* overrides
+HYPOTHESIS_PROFILE=thorough uv run pytest packages/maq-risk   # property tests, 100k examples
 
-# Environment
+# Environment and operations
 uv run maq doctor                         # Python, deps, MT5, config, API key, CLI agents
+uv run maq kill-switch engage --mode halt_new --reason "..."   # or flatten; release; status
+uv run maq audit verify                   # check the hash chain of logs/events.db
 setx NVIDIA_API_KEY "<your-key>"          # DeepSeek via the NVIDIA endpoint (Windows)
 setx MAQ_TOOL__MT5__TERMINAL_PATH "C:/path/to/terminal64.exe"   # per-machine override
 
@@ -74,7 +77,16 @@ Fusion Engine (regime check + voting) → Trading Dept (1 LLM + tools)
 Risk Guards (trade/daily/account) → MT5 Executor
 ```
 
-### Key Modules
+### New platform packages (2026 upgrade; strict mypy)
+
+- **packages/maq-core**: domain types (`maq_core.domain`), event base + registry (`maq_core.events`), clocks, config schema, logging
+- **packages/maq-brokers**: async `Broker` protocol, `PaperBroker`, `Mt5Broker` (MT5 adapter), `Mt5GatewayBroker` (HTTP client); `maq_brokers.testing.BrokerContract` is the contract suite every broker must pass
+- **packages/maq-risk**: `RiskKernel.evaluate(proposal, context)` -- pure, deterministic pre-trade checks and sizing; `CircuitBreakers`, `KillSwitch`, `Mandate`; rules in `docs/adr/0008-risk-kernel-rules.md`
+- **packages/maq-engine**: `EventStore` (append-only, hash-chained SQLite), `OrderManager` (persist before send, idempotency, reconciliation), `ExecutionPipeline` (proposal -> kernel -> orders)
+- **services/mt5-gateway**: FastAPI service owning one MT5 terminal (Windows); REST + long-polled events, bearer token
+- The legacy loop (below) still does the trading; it honours the kill switch. Phase 4 moves it onto the new packages.
+
+### Key Modules (legacy)
 
 - **orchestrator/cycle.py**: Main cycle logic orchestrating snapshot→agents→fusion→risk→execution
 - **agents/**: LLM wrappers (CLI agents for GPT/Claude/Gemini, API client for DeepSeek)
@@ -118,6 +130,10 @@ code reads, add it to the schema too.
 - `run_loop.py --live` refuses to start when `maq_core.config.live_trading_issues()` reports anything.
 - The trading department may only EXECUTE/MODIFY the researched symbol and direction (`TradingAgent._validate_decision`); anything else becomes REJECT.
 - Lot sizes are floored to `volume_step` (`execution/mt5_executor.py::_clamp_volume`), never rounded up past the risk budget.
+- A `None` from `order_send` means "no answer", not "not executed": never resend (see `_send_with_filling_fallback`, `Mt5Broker`, `OrderManager`). Unknown outcomes are looked up with `find_order`.
+- The risk kernel always requires a stop loss, rejects sizes below the minimum lot, and needs a valid mandate for real-money accounts. Do not weaken these to make a test pass.
+- Every order goes through `OrderManager.submit` in new code: it writes the order to the event log before sending. Never call `broker.submit` directly from strategy code.
+- `daily_loss_limit` / `daily_profit_target` are fractions of the day's starting balance (`risk/daily_guard.py`), not money.
 
 ## Code Conventions
 
@@ -126,8 +142,12 @@ code reads, add it to the schema too.
   legacy packages (`agents/`, `execution/`, ...) are migrated gradually (see `docs/roadmap/`)
 - YAML/JSON config keys use `lower_snake_case`
 - Tests in `tests/test_*.py` (package tests in `packages/*/tests/`); every bug fix gets a test
-- Test doubles: `tests/fakes/mt5.py` (fake MetaTrader5 terminal, use the `fake_mt5` fixture) and
-  `tests/fakes/llm_server.py` (OpenAI-compatible HTTP server); `tests/factories.py` has a schema-valid signal
+- Test doubles: `tests/fakes/mt5.py` (fake MetaTrader5 terminal, use the `fake_mt5` fixture),
+  `tests/fakes/mt5_server.py` (simulated MT5 trade server for adapter tests),
+  `tests/fakes/llm_server.py` (OpenAI-compatible HTTP server); `tests/factories.py` has a schema-valid signal;
+  `maq_risk.testing` builds risk contexts and proposals
+- New broker implementations subclass `maq_brokers.testing.BrokerContract` and provide a `harness` fixture
+- Async tests run with pytest-asyncio in auto mode (no marker needed)
 - MT5 integration tests require `MT5_INTEGRATION=1` and a running terminal
 - Architecture decisions are recorded in `docs/adr/`
 
