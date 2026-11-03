@@ -24,13 +24,12 @@ try:  # pragma: no cover - depends on the platform
 except ImportError:  # pragma: no cover
     sys.modules["MetaTrader5"] = FakeMT5()
 
-# Every project module that does `import MetaTrader5 as mt5`.
+# Every project module that does `import MetaTrader5 as mt5` at module level.
 MT5_MODULES = (
     "data.trade_history",
     "execution.mt5_executor",
     "tools.mt5_connection",
     "tools.mt5_tools",
-    "tools.tool_registry",
 )
 
 
@@ -38,6 +37,8 @@ MT5_MODULES = (
 def fake_mt5(monkeypatch: pytest.MonkeyPatch) -> Iterator[FakeMT5]:
     """A fresh fake terminal wired into every module that talks to MT5."""
     fake = FakeMT5()
+    # Covers imports done inside functions (e.g. tools.tool_registry).
+    monkeypatch.setitem(sys.modules, "MetaTrader5", fake)
     for name in MT5_MODULES:
         module = importlib.import_module(name)
         monkeypatch.setattr(module, "mt5", fake)

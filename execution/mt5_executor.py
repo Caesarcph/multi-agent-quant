@@ -320,9 +320,38 @@ def build_order_request(
         "magic": int(config.get("magic", 0)),
         "comment": config.get("comment", "multi-agent-quant"),
         "type_time": mt5.ORDER_TIME_GTC,
-        "type_filling": int(symbol_info.get("filling_mode", mt5.ORDER_FILLING_IOC)),
+        "type_filling": _order_filling_types(symbol_info)[0],
     }
     return request
+
+
+def _order_filling_types(symbol_info: dict[str, Any]) -> list[int]:
+    """Valid ``ORDER_FILLING_*`` types for a symbol, most preferred first.
+
+    ``symbol_info.filling_mode`` is a *bitmask of allowed modes*
+    (SYMBOL_FILLING_FOK = 1, SYMBOL_FILLING_IOC = 2), while an order's
+    ``type_filling`` is an *enum* (ORDER_FILLING_FOK = 0, IOC = 1, RETURN = 2).
+    Passing the mask straight through sends the wrong mode (mask 1 -> IOC) or an
+    invalid one (mask 3), which the broker rejects with "Unsupported filling mode".
+    """
+    fok = int(getattr(mt5, "ORDER_FILLING_FOK", 0))
+    ioc = int(getattr(mt5, "ORDER_FILLING_IOC", 1))
+    ret = int(getattr(mt5, "ORDER_FILLING_RETURN", 2))
+    try:
+        flags = int(symbol_info.get("filling_mode") or 0)
+    except (TypeError, ValueError):
+        flags = 0
+
+    allowed: list[int] = []
+    if flags & int(getattr(mt5, "SYMBOL_FILLING_IOC", 2)):
+        allowed.append(ioc)
+    if flags & int(getattr(mt5, "SYMBOL_FILLING_FOK", 1)):
+        allowed.append(fok)
+    if not allowed:
+        # No immediate-execution flag: the symbol uses RETURN (exchange/request execution).
+        allowed.append(ret)
+    # Keep the remaining modes as a last resort for brokers that misreport the flags.
+    return allowed + [mode for mode in (ioc, fok, ret) if mode not in allowed]
 
 
 def _success_retcodes() -> set[int]:
@@ -344,35 +373,6 @@ def _is_filling_mode_error(response: Any) -> bool:
     return retcode == 10030 or "Unsupported filling mode" in comment
 
 
-def _filling_mode_candidates(symbol_info: dict[str, Any]) -> list[int]:
-    candidates: list[int] = []
-    raw_mode = symbol_info.get("filling_mode")
-    if raw_mode is not None:
-        try:
-            mode = int(raw_mode)
-            if mode in (0, 1, 2):
-                candidates.append(mode)
-            else:
-                candidates.append(mode)
-        except (TypeError, ValueError):
-            pass
-    for mode in (
-        getattr(mt5, "ORDER_FILLING_FOK", 0),
-        getattr(mt5, "ORDER_FILLING_IOC", 1),
-        getattr(mt5, "ORDER_FILLING_RETURN", 2),
-    ):
-        candidates.append(int(mode))
-
-    seen: set[int] = set()
-    ordered: list[int] = []
-    for mode in candidates:
-        if mode in seen:
-            continue
-        seen.add(mode)
-        ordered.append(mode)
-    return ordered
-
-
 def _send_with_filling_fallback(
     request: dict[str, Any],
     symbol_info: dict[str, Any],
@@ -382,8 +382,7 @@ def _send_with_filling_fallback(
     if response is not None and not _is_filling_mode_error(response):
         return response, request, notes
 
-    candidates = _filling_mode_candidates(symbol_info)
-    for mode in candidates:
+    for mode in _order_filling_types(symbol_info):
         if int(request.get("type_filling", mode)) == mode:
             continue
         retry_request = dict(request)
